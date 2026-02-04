@@ -1,0 +1,27 @@
+
+name: Rsync Deploy
+on: [push, workflow_dispatch]
+jobs:
+    Rsync-deploy:
+      runs-on: ubuntu-latest
+      defaults:
+        run:
+          shell: bash
+      steps:
+          - name: Check out repository code
+            uses: actions/checkout@v4
+          - name: Create Brotli files
+            run: >
+             find .
+             \( -iname '*.css' -o -iname '*.js' -o -iname '*.html' \)
+             -exec bash -c 'brotli --best -f "$0"' {} \;
+          - name: Rsync to prod
+            uses: mschmitt/rsync-with-ssh-agent@v2
+            with:
+                SSH_KEY: ${{ secrets.SSH_KEY }}
+                SSH_PASSPHRASE: ${{ secrets.SSH_PASSPHRASE }}
+                SSH_USER: ${{ secrets.SSH_USER }}
+                SSH_HOST: ${{ secrets.SSH_HOST }}
+                RSYNC_LOCAL_PATH: .
+                RSYNC_REMOTE_PATH: '/var/www/fuelseeker.net'
+                RSYNC_OPTIONS: '--recursive --checksum --delete --verbose --exclude-from=./exclude-list.txt'

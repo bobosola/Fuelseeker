@@ -1,0 +1,21 @@
+# Environment variables (contains secrets)
+.env
+
+# Data directory (contains SQLite database)
+/data/
+
+# Lock files and logs
+*.lock
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
