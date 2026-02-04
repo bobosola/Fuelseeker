@@ -12,7 +12,7 @@ require_once __DIR__ . '/config.php';
 // Generate Base64 auth string from environment variables
 $osAuthBase64 = base64_encode(OS_API_KEY . ':' . OS_API_SECRET);
 
-$allowedHosts = ['localhost', '127.0.0.1', 'fuel.osola.uk', 'fuel.local'];
+$allowedHosts = ['localhost', '127.0.0.1', 'fuelseeker.net'];
 
 function getAllHeadersSafe() {
     if (function_exists('getallheaders')) {

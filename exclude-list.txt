@@ -3,3 +3,6 @@
 exclude-list.txt
 /stats
 /Docs
+/data
+update_data.php
+schema.sql
