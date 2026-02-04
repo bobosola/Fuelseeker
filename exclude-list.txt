@@ -1,0 +1,5 @@
+.*
+*.md
+exclude-list.txt
+/stats
+/Docs

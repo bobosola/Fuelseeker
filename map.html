@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuelseeker.net map</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+</head>
+<body>
+    <header>
+        <nav>
+            <a href="/" class="logo">⛽ Fuelseeker.net</a>
+            <a href="/" class="nav-link">New Search</a>
+            <a href="/about.html" class="nav-link">About</a>
+        </nav>
+    </header>
+    <main class="map-page">
+        <div class="location-info">
+            <p id="locationTitle">Fuel stations near</p>
+        </div>
+        <div id="mapContainer" class="map-container">
+            <div id="map" class="map"></div>
+            <div class="map-legend">
+                <div class="legend-item"><span class="legend-icon open"></span><span>Open</span></div>
+                <div class="legend-item"><span class="legend-icon closed"></span><span>Closed</span></div>
+            </div>
+        </div>
+        <div id="loadingIndicator" class="loading-overlay">
+            <div class="loading-content">
+                <span class="spinner"></span>
+                <span id="loadingText">Loading fuel stations...</span>
+            </div>
+        </div>
+        <div id="locationPicker" class="location-picker hidden">
+            <div class="location-picker-content">
+                <h3>Choose a Location</h3>
+                <p id="locationPickerMessage">Multiple locations found:</p>
+                <ul id="locationList" class="location-list"></ul>
+                <button type="button" id="btnCancelPicker" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+        <div id="errorMessage" class="error-banner hidden" role="alert"></div>
+        <div class="results-section">
+            <p><strong><span>Fuel Prices</span></strong> (click column headers to sort)</p>
+            <div class="table-container">
+                <table id="fuelTable" class="fuel-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="name" class="sortable">Station Name<span class="sort-indicator"></span></th>
+                            <th data-sort="diesel" class="sortable sorted-desc">Diesel (p)<span class="sort-indicator">▼</span></th>
+                            <th data-sort="petrol" class="sortable">Petrol (p)<span class="sort-indicator"></span></th>
+                            <th data-sort="postcode" class="sortable">Postcode<span class="sort-indicator"></span></th>
+                            <th>Distance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fuelTableBody"></tbody>
+                </table>
+            </div>
+            <div id="noResults" class="no-results hidden">
+                <p>No fuel stations found within 5 miles.</p>
+                <p class="results-info">(Searched 2,500 UK stations - try a different location)</p>
+            </div>
+        </div>
+    </main>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+    <script type="module" src="/js/map.js"></script>
+</body>
+</html>

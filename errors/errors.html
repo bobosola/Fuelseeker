@@ -1,0 +1,28 @@
+{{- $errorCode:= (placeholder "http.error.status_code") -}}
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuelseeker.net error</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+</head>
+<body>
+	<header>
+		<nav>
+            <a href="/" class="logo">⛽ Fuelseeker.net</a>
+            <a href="/" class="nav-link">New Search</a>
+            <a href="/about.html" class="nav-link">About</a>
+        </nav>
+	</header>
+	<main>
+        <h1>{{ $errorCode }} error</h1>
+            {{- if (eq $errorCode "404") -}}
+                {{- printf (include "/errors/404.inc") -}}
+            {{- else -}}
+                {{- printf (include "/errors/other_errors.inc") -}}
+            {{- end -}}
+	</main>
+</body>
+</html>
