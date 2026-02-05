@@ -13,7 +13,7 @@ if (php_sapi_name() !== 'cli') {
     exit(1);
 }
 
-require_once '../scripts/config.php';
+require_once 'var/www/fuelseeker.net/scripts/config.php';
 
 // Validate that all required environment variables are set
 try {
@@ -23,50 +23,51 @@ try {
     exit(1);
 }
 
-const FUEL_API_BASE = 'https://www.fuel-finder.service.gov.uk/api/v1';
-const DATA_DIR = __DIR__;
-const DB_PATH = DATA_DIR . '/fuel_data.db';
-const BACKUP_PATH = DATA_DIR . '/fuel_data.db.backup';
-const LOCK_FILE = DATA_DIR . '/update.lock';
+// Define all paths as variables (not constants) for use throughout the script
+$fuelApiBase = 'https://www.fuel-finder.service.gov.uk/api/v1';
+$dataDir = '/var/www/fuelseeker.net/data';
+$dbPath = $dataDir . '/fuel_data.db';
+$backupPath = $dataDir . '/fuel_data.db.backup';
+$lockFile = $dataDir . '/update.lock';
 
 // Ensure data directory exists
-if (!is_dir(DATA_DIR)) {
-    mkdir(DATA_DIR, 0755, true);
+if (!is_dir($dataDir)) {
+    mkdir($dataDir, 0755, true);
 }
 
 // Prevent concurrent runs
-if (file_exists(LOCK_FILE)) {
-    $lockTime = filemtime($LOCK_FILE);
+if (file_exists($lockFile)) {
+    $lockTime = filemtime($lockFile);
     if (time() - $lockTime < 3600) { // 1 hour timeout
         echo "Update already in progress (lock file exists)\n";
         exit(1);
     }
-    unlink(LOCK_FILE);
+    unlink($lockFile);
 }
 
-touch(LOCK_FILE);
+touch($lockFile);
 
 // Track if we need to restore backup
 $restoreNeeded = false;
 
 function cleanup() {
-    global $LOCK_FILE, $restoreNeeded, $BACKUP_PATH, $DB_PATH;
+    global $lockFile, $restoreNeeded, $backupPath, $dbPath;
     
     // Remove lock file
-    if (file_exists($LOCK_FILE)) {
-        unlink($LOCK_FILE);
+    if (file_exists($lockFile)) {
+        unlink($lockFile);
     }
     
     // Restore backup if update failed
-    if ($restoreNeeded && file_exists($BACKUP_PATH)) {
+    if ($restoreNeeded && file_exists($backupPath)) {
         echo "Restoring backup database...\n";
-        copy($BACKUP_PATH, $DB_PATH);
+        copy($backupPath, $dbPath);
         echo "Backup restored.\n";
     }
     
     // Clean up backup file
-    if (file_exists($BACKUP_PATH)) {
-        unlink($BACKUP_PATH);
+    if (file_exists($backupPath)) {
+        unlink($backupPath);
     }
 }
 
@@ -80,24 +81,24 @@ try {
     exit(0);
 } catch (Exception $e) {
     echo "ERROR: " . $e->getMessage() . "\n";
-    file_put_contents(DATA_DIR . '/update_error.log', date('Y-m-d H:i:s') . ' - ' . $e->getMessage() . "\n", FILE_APPEND);
+    file_put_contents($dataDir . '/update_error.log', date('Y-m-d H:i:s') . ' - ' . $e->getMessage() . "\n", FILE_APPEND);
     $restoreNeeded = true; // Trigger restore
     exit(1);
 }
 
 function updateDataSafe() {
-    global $DB_PATH, $BACKUP_PATH, $restoreNeeded;
+    global $dbPath, $backupPath, $restoreNeeded, $fuelApiBase, $dataDir;
     
     echo "Starting fuel data update (safe mode)...\n";
     
     // Step 1: Create backup of existing database
-    if (file_exists($DB_PATH)) {
+    if (file_exists($dbPath)) {
         echo "Creating backup of existing database...\n";
-        if (!copy($DB_PATH, $BACKUP_PATH)) {
+        if (!copy($dbPath, $backupPath)) {
             throw new Exception('Failed to create database backup');
         }
         $restoreNeeded = true; // Mark that we may need to restore
-        echo "Backup created: " . BACKUP_PATH . "\n";
+        echo "Backup created: " . $backupPath . "\n";
     }
     
     // Step 2: Download all data first (before touching database)
@@ -119,7 +120,7 @@ function updateDataSafe() {
     // Step 3: Update database with transaction
     echo "Updating database...\n";
     
-    $db = new PDO('sqlite:' . $DB_PATH);
+    $db = new PDO('sqlite:' . $dbPath);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Create tables (this is idempotent - safe to run multiple times)
@@ -207,14 +208,15 @@ function updateDataSafe() {
     }
 }
 
-// Include the same helper functions from original
 function getFuelToken() {
+    global $fuelApiBase;
+    
     $postData = json_encode([
         'client_id' => FUEL_CLIENT_ID,
         'client_secret' => FUEL_CLIENT_SECRET
     ]);
     
-    $ch = curl_init(FUEL_API_BASE . '/oauth/generate_access_token');
+    $ch = curl_init($fuelApiBase . '/oauth/generate_access_token');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
@@ -241,12 +243,14 @@ function getFuelToken() {
 }
 
 function fetchAllStations($token) {
+    global $fuelApiBase;
+    
     $allStations = [];
     $batchNumber = 1;
     $hasMore = true;
     
     while ($hasMore) {
-        $url = FUEL_API_BASE . '/pfs?batch-number=' . $batchNumber;
+        $url = $fuelApiBase . '/pfs?batch-number=' . $batchNumber;
         
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -289,12 +293,14 @@ function fetchAllStations($token) {
 }
 
 function fetchAllFuelPrices($token) {
+    global $fuelApiBase;
+    
     $allPrices = [];
     $batchNumber = 1;
     $hasMore = true;
     
     while ($hasMore) {
-        $url = FUEL_API_BASE . '/pfs/fuel-prices?batch-number=' . $batchNumber;
+        $url = $fuelApiBase . '/pfs/fuel-prices?batch-number=' . $batchNumber;
         
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
