@@ -9,6 +9,14 @@
  * 0 6,18 * * * /usr/bin/php /path/to/scripts/update_data.php
  */
 
+// Security: Only allow CLI access (cron, SSH, etc.)
+// Prevents web users from triggering updates
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    echo json_encode(['error' => 'This script can only be run from the command line']);
+    exit(1);
+}
+
 require_once __DIR__ . '/config.php';
 
 // Validate that all required environment variables are set
@@ -175,6 +183,8 @@ function getFuelToken() {
     ]);
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4); // Force IPv4
+    curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -205,6 +215,8 @@ function fetchAllStations($token) {
         ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -252,6 +264,8 @@ function fetchAllFuelPrices($token) {
         ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+        curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

@@ -9,7 +9,7 @@ session_start();
 require_once __DIR__ . '/config.php';
 const FUEL_API_BASE = 'https://www.fuel-finder.service.gov.uk/api/v1';
 
-$allowedHosts = ['localhost', '127.0.0.1', 'fuel.osola.uk', 'fuel.local'];
+$allowedHosts = ['localhost', '127.0.0.1', 'fuelseeker.net', 'www.fuelseeker.net'];
 
 function getAllHeadersSafe() {
     if (function_exists('getallheaders')) {
@@ -74,6 +74,8 @@ function getFuelToken() {
     curl_setopt($ch, CURLOPT_TIMEOUT, 10);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+    curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1); // Force IPv4
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -180,6 +182,8 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, array(
 ));
 curl_setopt($ch, CURLOPT_TIMEOUT, 30);
 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

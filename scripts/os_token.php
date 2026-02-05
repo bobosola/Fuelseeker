@@ -12,7 +12,7 @@ require_once __DIR__ . '/config.php';
 // Generate Base64 auth string from environment variables
 $osAuthBase64 = base64_encode(OS_API_KEY . ':' . OS_API_SECRET);
 
-$allowedHosts = ['localhost', '127.0.0.1', 'fuelseeker.net'];
+$allowedHosts = ['localhost', '127.0.0.1', 'fuelseeker.net', 'www.fuelseeker.net'];
 
 function getAllHeadersSafe() {
     if (function_exists('getallheaders')) {
@@ -104,9 +104,22 @@ if (!isAllowedHost($referer, $allowedHosts)) {
     exit();
 }
 
-if (!validateCsrfToken()) {
+// Get CSRF token from header (try multiple methods)
+$receivedToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+if (empty($receivedToken) && function_exists('getallheaders')) {
+    $headers = getallheaders();
+    $receivedToken = $headers['X-CSRF-Token'] ?? '';
+}
+
+if (empty($receivedToken) || empty($_SESSION['csrf_token'])) {
     http_response_code(403);
     echo json_encode(['error' => 'Forbidden: Invalid CSRF token']);
+    exit();
+}
+
+if (!hash_equals($_SESSION['csrf_token'], $receivedToken)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Forbidden: CSRF token mismatch']);
     exit();
 }
 

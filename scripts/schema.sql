@@ -1,5 +1,6 @@
--- SQLite schema for Fuel Finder local cache
+-- Fuel Finder Database Schema
 
+-- Stations table
 CREATE TABLE IF NOT EXISTS stations (
     node_id TEXT PRIMARY KEY,
     mft_organisation_name TEXT,
@@ -18,25 +19,27 @@ CREATE TABLE IF NOT EXISTS stations (
     postcode TEXT,
     latitude REAL,
     longitude REAL,
-    amenities TEXT, -- JSON array
-    opening_times TEXT, -- JSON object
-    fuel_types TEXT, -- JSON array
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    amenities TEXT,
+    opening_times TEXT,
+    fuel_types TEXT,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_stations_location ON stations(latitude, longitude);
-CREATE INDEX IF NOT EXISTS idx_stations_postcode ON stations(postcode);
-CREATE INDEX IF NOT EXISTS idx_stations_closure ON stations(permanent_closure, temporary_closure);
-
+-- Fuel prices table
 CREATE TABLE IF NOT EXISTS fuel_prices (
     node_id TEXT PRIMARY KEY,
-    fuel_prices TEXT, -- JSON array of price objects
-    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fuel_prices TEXT,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (node_id) REFERENCES stations(node_id)
 );
 
+-- Cache metadata table
 CREATE TABLE IF NOT EXISTS cache_metadata (
     key TEXT PRIMARY KEY,
     value TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create index for faster location searches
+CREATE INDEX IF NOT EXISTS idx_stations_location ON stations(latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_stations_postcode ON stations(postcode);

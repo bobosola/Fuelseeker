@@ -104,11 +104,118 @@ Access the website in your browser:
 https://your-domain.com/
 ```
 
+## Database Update Options
+
+The fuel prices change throughout the day. The database should be updated twice daily (6 AM and 6 PM).
+
+**⚠️ IMPORTANT**: The gov.uk Fuel Finder API is only accessible from UK IP addresses. If your server is outside the UK (e.g., Germany, US, etc.), the API will block requests with HTTP 403.
+
+### Option 1: Manual Copy from Local Machine (Simplest)
+
+If you have a UK-based computer (home/office), run the update locally and copy the database to your server:
+
+**On your UK computer:**
+```bash
+cd /path/to/fuel
+php scripts/update_data.php
+```
+
+**Then copy to your server:**
+```bash
+scp data/fuel_data.db user@fuelseeker.net:/var/www/fuelseeker.net/data/
+```
+
+You can set this up as a scheduled task on your UK computer (cron on Mac/Linux, Task Scheduler on Windows).
+
+### Option 2: Using NordVPN CLI on Your Server (Recommended for VPS)
+
+If you have a NordVPN subscription, you can install their CLI client on your Debian server and connect to a UK server before running updates.
+
+**Install NordVPN:**
+```bash
+# Download and install NordVPN
+sh <(curl -sSf https://downloads.nordcdn.com/apps/linux/install.sh)
+
+# Get a login token as per https://support.nordvpn.com/hc/en-us/articles/20286980309265-How-to-log-in-to-NordVPN-without-a-GUI-using-a-token
+
+# Log in
+nordvpn login --token <your token here>
+```
+The response should be:
+```
+Welcome to NordVPN! You can now connect to the VPN by using 'nordvpn connect'.
+
+NOTE: By default, all users who are members of the 'nordvpn' group have permission to control the NordVPN application.
+To limit access exclusively to the root user, remove all users from the 'nordvpn' group.
+```
+
+
+
+**Create an update script with VPN:**
+```bash
+sudo nano /usr/local/bin/fuel-update-with-vpn.sh
+```
+
+**Content:**
+```bash
+#!/bin/bash
+# Update fuel database with UK VPN connection
+
+# Connect to UK server
+nordvpn connect United_Kingdom
+
+# Wait for connection
+sleep 10
+
+# Run update
+/usr/bin/php /var/www/fuelseeker.net/scripts/update_data.php >> /var/www/fuelseeker.net/data/cron.log 2>&1
+
+# Disconnect VPN
+nordvpn disconnect
+```
+
+**Make executable and set up cron:**
+```bash
+chmod +x /usr/local/bin/fuel-update-with-vpn.sh
+
+# Add to crontab (twice daily)
+crontab -e
+# Add: 0 6,18 * * * /usr/local/bin/fuel-update-with-vpn.sh
+```
+
+**Alternative - using NordVPN's SOCKS5 proxy (no VPN connection needed):**
+If NordVPN supports SOCKS5 proxy, you can configure curl to use it without connecting the VPN:
+```bash
+# Add to update_data.php curl options:
+# curl_setopt($ch, CURLOPT_PROXY, 'uk-proxy.nordvpn.com:1080');
+# curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5);
+```
+
+### Option 3: Using a UK Proxy Server
+
+If you have access to a UK proxy server, you can route API requests through it:
+
+1. Edit `scripts/update_data.php` and `scripts/api_proxy.php`
+2. Add proxy options to curl calls:
+   ```php
+   curl_setopt($ch, CURLOPT_PROXY, 'your-uk-proxy.com:8080');
+   curl_setopt($ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+   ```
+
+### Option 4: UK-Based VPS for Updates Only
+
+Run a small, cheap UK-based VPS (DigitalOcean London, AWS London, etc.) solely for running the update script, then sync the database to your main server:
+
+**On UK VPS (cron job):**
+```bash
+0 6,18 * * * /usr/bin/php /path/to/update_data.php && scp /path/to/data/fuel_data.db main-server:/var/www/fuelseeker.net/data/
+```
+
+---
+
 ## Setting Up Automatic Updates (Cron Job)
 
-The fuel prices change throughout the day. Set up a cron job to update the database twice daily.
-
-### Option 1: Using Crontab (Recommended)
+### Using Crontab
 
 Edit your user's crontab:
 
@@ -136,7 +243,161 @@ Replace `/path/to/fuel` with your actual installation path.
 0 6,18 * * * /usr/bin/php /var/www/fuel/scripts/update_data.php >> /var/www/fuel/data/cron.log 2>&1
 ```
 
-### Option 2: Using Systemd Timer (Linux VPS)
+### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers)
+
+For servers outside the UK, use a systemd service with the VPN wrapper script.
+
+**1. Create the wrapper script** (`/usr/local/bin/fuel-update-with-vpn.sh`):
+
+```bash
+#!/bin/bash
+# Update fuel database with UK VPN connection
+
+LOG_FILE="/var/www/fuelseeker.net/data/cron.log"
+FUEL_DIR="/var/www/fuelseeker.net"
+LOCK_FILE="$FUEL_DIR/data/update.lock"
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
+
+log "=== Starting Fuel Update ==="
+
+# Remove stale lock file if it exists
+if [ -f "$LOCK_FILE" ]; then
+    log "Lock file exists - removing to allow this update"
+    rm -f "$LOCK_FILE"
+fi
+
+# Check if we can reach the API without VPN
+log "Testing API access without VPN..."
+API_TEST=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+    "https://www.fuel-finder.service.gov.uk/api/v1/pfs?batch-number=1" 2>/dev/null)
+log "API test HTTP code: $API_TEST"
+
+if [ "$API_TEST" = "200" ]; then
+    log "API accessible without VPN"
+    VPN_NEEDED=false
+else
+    log "API not accessible without VPN (HTTP $API_TEST) - need VPN"
+    VPN_NEEDED=true
+fi
+
+# Only use VPN if needed
+if [ "$VPN_NEEDED" = true ]; then
+    log "Whitelisting SSH port to prevent connection drop..."
+    nordvpn whitelist add port 22
+    
+    log "Connecting to NordVPN UK server..."
+    nordvpn connect United_Kingdom
+    
+    if [ $? -ne 0 ]; then
+        log "ERROR: Failed to connect to VPN"
+        exit 1
+    fi
+    
+    log "Waiting for VPN connection..."
+    sleep 10
+    
+    if ! nordvpn status | grep -q "Connected"; then
+        log "ERROR: VPN not connected"
+        exit 1
+    fi
+    
+    log "VPN connected successfully"
+fi
+
+# Run the update
+log "Running fuel data update..."
+cd "$FUEL_DIR"
+UPDATE_OUTPUT=$(/usr/bin/php "$FUEL_DIR/scripts/update_data.php" 2>&1)
+UPDATE_STATUS=$?
+
+echo "$UPDATE_OUTPUT" | while read line; do
+    log "  $line"
+done
+
+if [ $UPDATE_STATUS -eq 0 ]; then
+    log "Update completed successfully"
+else
+    log "ERROR: Update failed with status $UPDATE_STATUS"
+fi
+
+# Disconnect VPN if we connected
+if [ "$VPN_NEEDED" = true ]; then
+    log "Disconnecting VPN..."
+    echo "n" | nordvpn disconnect > /dev/null 2>&1
+    log "Removing SSH whitelist..."
+    nordvpn whitelist remove port 22 > /dev/null 2>&1
+fi
+
+log "=== Update Process Complete ==="
+exit $UPDATE_STATUS
+```
+
+Make it executable:
+```bash
+chmod +x /usr/local/bin/fuel-update-with-vpn.sh
+```
+
+**2. Create the service file** (`/etc/systemd/system/fuelseeker-vpn-update.service`):
+
+```ini
+[Unit]
+Description=Fuel Finder Database Update with VPN
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fuel-update-with-vpn.sh
+StandardOutput=append:/var/www/fuelseeker.net/data/cron.log
+StandardError=append:/var/www/fuelseeker.net/data/cron.log
+
+# Note: This runs as root because nordvpn requires root privileges
+User=root
+```
+
+**3. Create the timer file** (`/etc/systemd/system/fuelseeker-vpn-update.timer`):
+
+```ini
+[Unit]
+Description=Run Fuel Finder VPN Update Twice Daily
+
+[Timer]
+# Run at 6:00 AM and 6:00 PM every day
+OnCalendar=*-*-* 06,18:00:00
+
+# Add a random delay up to 5 minutes to avoid server overload
+RandomizedDelaySec=5m
+
+# Ensure it runs if system was off at scheduled time
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+**4. Install and enable:**
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable fuelseeker-vpn-update.timer
+sudo systemctl start fuelseeker-vpn-update.timer
+```
+
+**5. Check status:**
+
+```bash
+sudo systemctl list-timers fuelseeker-vpn-update.timer
+sudo journalctl -u fuelseeker-vpn-update.service --since "1 hour ago"
+```
+
+---
+
+### Option 3: Using Systemd Timer (Linux VPS - UK Servers)
+
+For UK-based servers (no VPN needed), create a simpler systemd service:
 
 Create a systemd service file:
 
@@ -188,7 +449,7 @@ Check status:
 sudo systemctl list-timers --all
 ```
 
-### Option 3: cPanel Cron Jobs
+### Option 4: cPanel Cron Jobs
 
 1. Log in to cPanel
 2. Go to **Cron Jobs**
@@ -234,11 +495,20 @@ php /path/to/fuel/scripts/update_data.php
 php /path/to/fuel/scripts/update_data.php
 ```
 
-#### 2. "Failed to get OAuth token"
+#### 2. "Failed to get OAuth token" / HTTP 403 from CloudFront
 
-**Cause**: API credentials issue or network problem.
+**Cause**: Your server is outside the UK and the gov.uk API is geoblocked.
 
-**Fix**: Check your internet connection and verify the API credentials in `scripts/update_data.php`.
+**Fix**: See [Database Update Options](#database-update-options) section above. Solutions include:
+- Using NordVPN CLI on your server
+- Copying database from a UK-based computer
+- Using a UK proxy server
+
+**To verify**: Check if you can reach the API:
+```bash
+curl -I https://www.fuel-finder.service.gov.uk/
+```
+If you see `HTTP 403` with `server: CloudFront`, your IP is blocked.
 
 #### 3. Permission Denied Errors
 
@@ -325,3 +595,9 @@ For issues with:
 ---
 
 **Last Updated**: February 2026
+
+## Changelog
+
+- **Feb 2026**: Added geolocation workaround documentation for non-UK servers
+- **Feb 2026**: Updated config.php to support .env file in scripts/ directory
+- **Feb 2026**: Fixed domain whitelisting for os_token.php and token.php

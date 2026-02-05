@@ -6,9 +6,21 @@
  * If .env file exists, it will be loaded.
  */
 
-// Load .env file if it exists
-$envFile = __DIR__ . '/../.env';
-if (file_exists($envFile)) {
+// Load .env file if it exists (check multiple locations)
+$envFiles = [
+    __DIR__ . '/../.env',     // Parent directory
+    __DIR__ . '/.env',        // Same directory (scripts folder)
+];
+
+$envFile = null;
+foreach ($envFiles as $file) {
+    if (file_exists($file)) {
+        $envFile = $file;
+        break;
+    }
+}
+
+if ($envFile) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         // Skip comments
