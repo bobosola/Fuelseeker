@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/bobosola/fuel-update-with-vpn.sh
+ExecStart=/usr/local/bin/fuel-update-with-vpn.sh
 StandardOutput=append:/var/www/fuelseeker.net/data/cron.log
 StandardError=append:/var/www/fuelseeker.net/data/cron.log
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=Run Fuel Finder VPN Update Twice Daily
+Description=Run Fuel Finder VPN Update 3 times Daily
 
 [Timer]
 # Run at 06:00, 13:00 and 18:00 every day

@@ -578,6 +578,7 @@ fuel/
 │   ├── token.php           (644)
 │   ├── os_token.php        (644)
 │   └── api_proxy.php       (644)
+│   └── .env      (644)
 ├── css/                    (755)
 ├── js/                     (755)
 ├── index.html              (644)
