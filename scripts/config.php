@@ -8,7 +8,6 @@
 
 // Load .env file if it exists (check multiple locations)
 $envFiles = [
-    __DIR__ . '/../.env',     // Parent directory
     __DIR__ . '/.env',        // Same directory (scripts folder)
 ];
 

@@ -133,7 +133,12 @@ $post .= "\r\n";
 $post .= "grant_type=client_credentials\r\n";
 $post .= "\r\n";
 
-$fp = @fsockopen("tls://api.os.uk", 443, $error_code, $error_message, 10);
+$port = 443;
+$error_code = "";
+$error_message = "";
+$timeout = 10;
+
+$fp = @fsockopen("tls://api.os.uk", $port, $error_code, $error_message, $timeout = 10);
 
 if (!$fp) {
     http_response_code(500);
