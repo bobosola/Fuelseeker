@@ -1,0 +1,20 @@
+[Unit]
+Description=Fuel Finder Database Update with VPN
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/bobosola/fuel-update-with-vpn.sh
+StandardOutput=append:/var/www/fuelseeker.net/data/cron.log
+StandardError=append:/var/www/fuelseeker.net/data/cron.log
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/fuelseeker.net/data
+
+# Note: This runs as root because nordvpn requires root privileges
+# If your nordvpn is set up for a specific user, change User= below
+User=root

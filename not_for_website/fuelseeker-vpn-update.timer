@@ -1,0 +1,15 @@
+[Unit]
+Description=Run Fuel Finder VPN Update Twice Daily
+
+[Timer]
+# Run at 06:00, 13:00 and 18:00 every day
+OnCalendar=*-*-* 06,13,18:00:00
+
+# Add a random delay up to 5 minutes to avoid server overload
+RandomizedDelaySec=5m
+
+# Ensure it runs if system was off at scheduled time
+Persistent=true
+
+[Install]
+WantedBy=timers.target
