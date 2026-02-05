@@ -245,25 +245,50 @@ Replace `/path/to/fuel` with your actual installation path.
 
 ### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers)
 
-For servers outside the UK, use a systemd service with the VPN wrapper script.
+For servers outside the UK, use a systemd service with the VPN wrapper script and safe update mechanism.
 
-**1. Create the wrapper script** (`/usr/local/bin/fuel-update-with-vpn.sh`):
+#### Prerequisites
+
+**1. Install the safe update script** (`/usr/local/bin/update_data.php`):
+
+This is the database update script with automatic backup and restore:
+
+```bash
+# Copy the safe update script to your server
+scp not_for_website/update_data_safe.php user@fuelseeker.net:/tmp/
+ssh user@fuelseeker.net "sudo mv /tmp/update_data_safe.php /usr/local/bin/update_data.php"
+```
+
+**Features of the safe update script:**
+- Creates a backup before any changes
+- Downloads all data BEFORE touching the database
+- Automatic rollback if update fails
+- Restores backup on any error
+- Your site stays online even if update fails
+
+**2. Create the wrapper script** (`/usr/local/bin/fuel-update-with-vpn.sh`):
 
 ```bash
 #!/bin/bash
-# Update fuel database with UK VPN connection
+# Update fuel database with UK VPN connection (Safe Version)
 
 LOG_FILE="/var/www/fuelseeker.net/data/cron.log"
-FUEL_DIR="/var/www/fuelseeker.net"
-LOCK_FILE="$FUEL_DIR/data/update.lock"
+UPDATE_SCRIPT="/usr/local/bin/update_data.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-log "=== Starting Fuel Update ==="
+log "=== Starting Fuel Update (Safe Mode) ==="
+
+# Check if update script exists
+if [ ! -f "$UPDATE_SCRIPT" ]; then
+    log "ERROR: Update script not found at $UPDATE_SCRIPT"
+    exit 1
+fi
 
 # Remove stale lock file if it exists
+LOCK_FILE="/var/www/fuelseeker.net/data/update.lock"
 if [ -f "$LOCK_FILE" ]; then
     log "Lock file exists - removing to allow this update"
     rm -f "$LOCK_FILE"
@@ -307,10 +332,9 @@ if [ "$VPN_NEEDED" = true ]; then
     log "VPN connected successfully"
 fi
 
-# Run the update
-log "Running fuel data update..."
-cd "$FUEL_DIR"
-UPDATE_OUTPUT=$(/usr/bin/php path/to/update_data.php 2>&1)
+# Run the update (safe version with backup)
+log "Running fuel data update (safe mode)..."
+UPDATE_OUTPUT=$(php "$UPDATE_SCRIPT" 2>&1)
 UPDATE_STATUS=$?
 
 echo "$UPDATE_OUTPUT" | while read line; do
@@ -321,6 +345,7 @@ if [ $UPDATE_STATUS -eq 0 ]; then
     log "Update completed successfully"
 else
     log "ERROR: Update failed with status $UPDATE_STATUS"
+    log "Database backup was restored automatically if needed"
 fi
 
 # Disconnect VPN if we connected
@@ -337,7 +362,7 @@ exit $UPDATE_STATUS
 
 Make it executable:
 ```bash
-chmod +x /usr/local/bin/fuel-update-with-vpn.sh
+sudo chmod +x /usr/local/bin/fuel-update-with-vpn.sh
 ```
 
 **2. Create the service file** (`/etc/systemd/system/fuelseeker-vpn-update.service`):
@@ -573,6 +598,19 @@ fuel/
 2. **API Credentials**: The OAuth credentials are stored server-side only in PHP files.
 
 3. **HTTPS**: Always use HTTPS in production to protect user location data.
+
+4. **Caddy Web Server**: Unlike Apache/nginx, Caddy does NOT hide dotfiles by default. This could expose your `.env` file containing API credentials. Add this to your Caddyfile:
+   ```caddy
+   file_server {
+       hide .*
+   }
+   ```
+   Or specifically hide sensitive files:
+   ```caddy
+   file_server {
+       hide .env .git .gitignore
+   }
+   ```
 
 ## Updating the Application
 
