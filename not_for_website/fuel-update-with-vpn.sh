@@ -2,7 +2,7 @@
 # Update fuel database with UK VPN connection (Safe Version with Backup)
 # This script ensures database integrity by creating backups before updates
 
-LOG_FILE="/var/www/fuelseeker.net/data/cron.log"
+LOG_FILE="/var/www/fuelseeker.net/data/update.log"
 FUEL_DIR="/var/www/fuelseeker.net"
 UPDATE_SCRIPT="/usr/local/bin/update_data.php"
 
@@ -65,7 +65,6 @@ fi
 
 # Run the update (safe version with backup)
 log "Running fuel data update (safe mode)..."
-cd "$FUEL_DIR"
 
 # Capture both stdout and stderr
 UPDATE_OUTPUT=$(php "$UPDATE_SCRIPT" 2>&1)
