@@ -12,4 +12,3 @@ Read the documents in this order:
 * Testing: [API Testing](API_Testing.md)
 * General developer guidlines & advice : [Developer Guidelines](Developer_Guidelines.md)
 * Support information: [Support](support.md)
-* OAuth client ID & secret information: [Secrets](Secrets.md)
