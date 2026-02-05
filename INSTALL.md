@@ -484,6 +484,62 @@ sudo systemctl list-timers --all
    - **Command**: `/usr/bin/php /home/username/public_html/fuel/scripts/update_data.php >> /home/username/public_html/fuel/data/update.log 2>&1`
 4. Click **Add New Cron Job**
 
+## How the Safe Update Works
+
+The VPN update script uses a **symlink-based atomic swap** system to minimize downtime:
+
+### Database File Structure
+
+```
+data/
+├── fuel_data.db          ← symlink (points to either v1 or v2)
+├── fuel_data.db.v1       ← actual database file
+└── fuel_data.db.v2       ← actual database file
+```
+
+### The Update Process
+
+1. **Download Phase:** All data (7,000+ stations) is downloaded from the API
+2. **Build Phase:** New database is built in the INACTIVE file (v1 or v2)
+3. **Swap Phase:** Symlink is atomically switched to point to the new file
+
+### Why Two Files?
+
+| Benefit | Explanation |
+|---------|-------------|
+| **Zero-downtime** | Symlink switch is instant (microseconds) |
+| **Safety** | Old file remains for any open PHP connections to finish |
+| **Alternation** | Each update overwrites the older file, not the active one |
+
+### Example Update Sequence
+
+**Update 1:**
+- Builds `fuel_data.db.v2` with new data
+- Switches symlink: `fuel_data.db → v2`
+- `v1` preserved (old data)
+
+**Update 2:**
+- Builds `fuel_data.db.v1` with new data
+- Switches symlink: `fuel_data.db → v1`
+- `v2` preserved (old data)
+
+**Update 3:**
+- Builds `fuel_data.db.v2` with new data
+- Switches symlink: `fuel_data.db → v2`
+- And so on...
+
+### Checking Which Database Is Active
+
+```bash
+# See which file the symlink points to
+ls -la /var/www/fuelseeker.net/data/fuel_data.db
+
+# Or read the symlink directly
+readlink /var/www/fuelseeker.net/data/fuel_data.db
+```
+
+---
+
 ## Monitoring & Troubleshooting
 
 ### Check Last Update Time
