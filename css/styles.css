@@ -702,7 +702,6 @@ main {
         padding: 0.4rem;
     }
 /* Smaller legend on mobile */
-@media (max-width: 768px) {
     .map-legend {
         padding: 0.25rem 0.35rem;
         font-size: 0.7rem;
