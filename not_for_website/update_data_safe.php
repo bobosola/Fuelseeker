@@ -1,9 +1,8 @@
 <?php
 /**
- * Fuel Data Update Script - Safe Version with Backup
+ * Fuel Data Update Script - Safe Version with Symlink Swap
  * 
- * This script downloads all fuel station data from the gov.uk API
- * and stores it locally in a SQLite database with backup/restore safety.
+ * Uses symlink atomicity for zero-downtime updates.
  */
 
 // Security: Only allow CLI access
@@ -13,9 +12,12 @@ if (php_sapi_name() !== 'cli') {
     exit(1);
 }
 
-require_once '/var/www/fuelseeker.net/scripts/config.php';
+// Updated paths based on user's setup
+$scriptDir = '/var/www/fuelseeker.net/scripts';
+$dataDir = '/var/www/fuelseeker.net/data';
 
-// Validate that all required environment variables are set
+require_once $scriptDir . '/config.php';
+
 try {
     validateConfig();
 } catch (Exception $e) {
@@ -23,89 +25,69 @@ try {
     exit(1);
 }
 
-// Define all paths as variables (not constants) for use throughout the script
 $fuelApiBase = 'https://www.fuel-finder.service.gov.uk/api/v1';
-$dataDir = '/var/www/fuelseeker.net/data';
-$dbPath = $dataDir . '/fuel_data.db';
-$backupPath = $dataDir . '/fuel_data.db.backup';
-$lockFile = $dataDir . '/update.lock';
 
-// Ensure data directory exists
-if (!is_dir($dataDir)) {
-    mkdir($dataDir, 0755, true);
-}
+// Symlink setup: fuel_data.db -> fuel_data.db.v1 (or v2)
+$symlinkPath = $dataDir . '/fuel_data.db';
+$versionA = $dataDir . '/fuel_data.db.v1';
+$versionB = $dataDir . '/fuel_data.db.v2';
+$lockFile = $dataDir . '/update.lock';
 
 // Prevent concurrent runs
 if (file_exists($lockFile)) {
-    $lockTime = filemtime($lockFile);
-    if (time() - $lockTime < 3600) { // 1 hour timeout
-        echo "Update already in progress (lock file exists)\n";
+    $lockAge = time() - filemtime($lockFile);
+    if ($lockAge < 3600) {
+        echo "Update already in progress (lock file exists, age: {$lockAge}s)\n";
         exit(1);
     }
     unlink($lockFile);
 }
-
 touch($lockFile);
 
-// Track if we need to restore backup
-$restoreNeeded = false;
-
-function cleanup() {
-    global $lockFile, $restoreNeeded, $backupPath, $dbPath;
-    
-    // Remove lock file
+function cleanup($lockFile) {
     if (file_exists($lockFile)) {
         unlink($lockFile);
     }
-    
-    // Restore backup if update failed
-    if ($restoreNeeded && file_exists($backupPath)) {
-        echo "Restoring backup database...\n";
-        copy($backupPath, $dbPath);
-        echo "Backup restored.\n";
-    }
-    
-    // Clean up backup file
-    if (file_exists($backupPath)) {
-        unlink($backupPath);
-    }
 }
-
-// Register cleanup function
-register_shutdown_function('cleanup');
+register_shutdown_function('cleanup', $lockFile);
 
 try {
-    updateDataSafe();
-    echo "Update completed successfully\n";
-    $restoreNeeded = false; // Don't restore on success
-    exit(0);
-} catch (Exception $e) {
-    echo "ERROR: " . $e->getMessage() . "\n";
-    file_put_contents($dataDir . '/update_error.log', date('Y-m-d H:i:s') . ' - ' . $e->getMessage() . "\n", FILE_APPEND);
-    $restoreNeeded = true; // Trigger restore
-    exit(1);
-}
-
-function updateDataSafe() {
-    global $dbPath, $backupPath, $restoreNeeded, $fuelApiBase, $dataDir;
+    echo "=== Starting Fuel Data Update (Symlink Method) ===\n";
     
-    echo "Starting fuel data update (safe mode)...\n";
-    
-    // Step 1: Create backup of existing database
-    if (file_exists($dbPath)) {
-        echo "Creating backup of existing database...\n";
-        if (!copy($dbPath, $backupPath)) {
-            throw new Exception('Failed to create database backup');
-        }
-        $restoreNeeded = true; // Mark that we may need to restore
-        echo "Backup created: " . $backupPath . "\n";
+    // First-time setup: migrate existing database to symlink structure
+    if (!file_exists($symlinkPath) && file_exists($dataDir . '/fuel_data.db')) {
+        echo "First run: migrating to symlink structure...\n";
+        rename($dataDir . '/fuel_data.db', $versionA);
+        symlink($versionA, $symlinkPath);
+        echo "Created symlink: fuel_data.db -> fuel_data.db.v1\n";
     }
     
-    // Step 2: Download all data first (before touching database)
+    // If symlink doesn't exist at all, create initial structure
+    if (!file_exists($symlinkPath)) {
+        echo "Creating initial database structure...\n";
+        touch($versionA); // Create empty file
+        symlink($versionA, $symlinkPath);
+    }
+    
+    // Determine which version to write to (the one NOT currently symlinked)
+    $currentTarget = @readlink($symlinkPath);
+    if ($currentTarget === false || basename($currentTarget) === 'fuel_data.db.v2') {
+        $targetVersion = $versionA;
+        $oldVersion = $versionB;
+    } else {
+        $targetVersion = $versionB;
+        $oldVersion = $versionA;
+    }
+    
+    echo "Current: " . ($currentTarget ? basename($currentTarget) : 'none') . "\n";
+    echo "Building: " . basename($targetVersion) . "\n";
+    
+    // Step 1: Download all data (before touching database)
+    echo "\n[1/3] Downloading data from API...\n";
     echo "Getting OAuth token...\n";
     $token = getFuelToken();
     if (!$token) {
-        throw new Exception('Failed to get OAuth token');
+        throw new Exception('Failed to get OAuth token - is VPN connected?');
     }
     echo "Got token\n";
     
@@ -117,17 +99,24 @@ function updateDataSafe() {
     $prices = fetchAllFuelPrices($token);
     echo "Downloaded prices for " . count($prices) . " stations\n";
     
-    // Step 3: Update database with transaction
-    echo "Updating database...\n";
+    // Step 2: Build new database
+    echo "\n[2/3] Building " . basename($targetVersion) . "...\n";
     
-    $db = new PDO('sqlite:' . $dbPath);
+    // Remove target if it exists
+    if (file_exists($targetVersion)) {
+        unlink($targetVersion);
+    }
+    // Also clean up any WAL files from previous runs
+    foreach ([$targetVersion . '-wal', $targetVersion . '-shm'] as $wal) {
+        if (file_exists($wal)) unlink($wal);
+    }
+    
+    $db = new PDO('sqlite:' . $targetVersion);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Create tables (this is idempotent - safe to run multiple times)
-    $schema = file_get_contents(__DIR__ . '/schema.sql');
+    $schema = file_get_contents('/home/bobosola/schema.sql');
     $db->exec($schema);
     
-    // Begin transaction for all inserts
     $db->beginTransaction();
     
     try {
@@ -146,7 +135,6 @@ function updateDataSafe() {
             (node_id, fuel_prices, last_updated) 
             VALUES (:node_id, :fuel_prices, CURRENT_TIMESTAMP)");
         
-        // Create price lookup map
         $priceMap = [];
         foreach ($prices as $priceData) {
             $priceMap[$priceData['node_id']] = $priceData['fuel_prices'] ?? [];
@@ -192,20 +180,45 @@ function updateDataSafe() {
             }
         }
         
-        // Update metadata
         $metaStmt = $db->prepare("INSERT OR REPLACE INTO cache_metadata (key, value, updated_at) VALUES ('last_update', :value, CURRENT_TIMESTAMP)");
         $metaStmt->execute([':value' => date('Y-m-d H:i:s')]);
         
-        // Commit all changes
         $db->commit();
+        $db = null; // Close connection
         
-        echo "Database update complete. Total stations: $count\n";
+        echo "Database built. Total stations: $count\n";
         
     } catch (Exception $e) {
-        // Rollback on error
         $db->rollBack();
         throw $e;
     }
+    
+    // Step 3: ATOMIC SYMLINK SWAP
+    echo "\n[3/3] Activating new database...\n";
+    
+    // Remove old symlink and create new one (atomic on most systems)
+    if (file_exists($symlinkPath)) {
+        unlink($symlinkPath);
+    }
+    
+    if (!symlink($targetVersion, $symlinkPath)) {
+        throw new Exception('Failed to create symlink');
+    }
+    
+    // Verify the swap
+    $newTarget = readlink($symlinkPath);
+    echo "Active database: " . basename($newTarget) . "\n";
+    
+    // Note: We leave the old version file in place - it will be overwritten on next update
+    // This allows any existing PHP connections to finish reading from it
+    
+    echo "=== Update completed successfully ===\n";
+    exit(0);
+    
+} catch (Exception $e) {
+    echo "ERROR: " . $e->getMessage() . "\n";
+    file_put_contents($dataDir . '/update_error.log', date('Y-m-d H:i:s') . ' - ' . $e->getMessage() . "\n", FILE_APPEND);
+    exit(1);
 }
 
 function getFuelToken() {

@@ -1,10 +1,8 @@
 #!/bin/bash
-# Update fuel database with UK VPN connection (Safe Version with Backup)
-# This script ensures database integrity by creating backups before updates
+# Update fuel database with UK VPN connection (Safe Version)
 
 LOG_FILE="/var/www/fuelseeker.net/data/update.log"
-FUEL_DIR="/var/www/fuelseeker.net"
-UPDATE_SCRIPT="/usr/local/bin/update_data_safe.php"
+UPDATE_SCRIPT="/usr/local/bin/update_data.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -18,8 +16,8 @@ if [ ! -f "$UPDATE_SCRIPT" ]; then
     exit 1
 fi
 
-# Remove stale lock file if it exists (from previous crashed run)
-LOCK_FILE="$FUEL_DIR/data/update.lock"
+# Remove stale lock file if it exists
+LOCK_FILE="/var/www/fuelseeker.net/data/update.lock"
 if [ -f "$LOCK_FILE" ]; then
     log "Lock file exists - removing to allow this update"
     rm -f "$LOCK_FILE"
@@ -65,12 +63,9 @@ fi
 
 # Run the update (safe version with backup)
 log "Running fuel data update (safe mode)..."
-
-# Capture both stdout and stderr
 UPDATE_OUTPUT=$(php "$UPDATE_SCRIPT" 2>&1)
 UPDATE_STATUS=$?
 
-# Log the output
 echo "$UPDATE_OUTPUT" | while read line; do
     log "  $line"
 done
@@ -86,7 +81,6 @@ fi
 if [ "$VPN_NEEDED" = true ]; then
     log "Disconnecting VPN..."
     echo "n" | nordvpn disconnect > /dev/null 2>&1
-    
     log "Removing SSH whitelist..."
     nordvpn whitelist remove port 22 > /dev/null 2>&1
 fi
