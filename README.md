@@ -83,24 +83,43 @@ See **[INSTALL.md](INSTALL.md)** for complete installation instructions includin
 ```
 fuel/
 ├── data/                   # SQLite database (auto-created)
-│   └── fuel_data.db
-├── scripts/
-│   ├── update_data.php     # Cron script to refresh data
+│   ├── fuel_data.db
+│   ├── cron.log
+│   └── update_error.log
+├── scripts/                # PHP backend scripts
+│   ├── api_proxy.php       # Fuel Finder API proxy
+│   ├── config.php          # Configuration loader
 │   ├── local_api.php       # Fast local API endpoints
-│   ├── token.php           # OAuth token handler
 │   ├── os_token.php        # Ordnance Survey token handler
+│   ├── token.php           # CSRF token handler
 │   └── schema.sql          # Database schema
-├── js/
+├── js/                     # JavaScript modules
 │   ├── api.js              # API calls
-│   ├── map.js              # Map logic
-│   ├── index.js            # Home page
-│   └── utils.js            # Utilities
+│   ├── index.js            # Home page logic
+│   ├── map.js              # Map page logic
+│   └── utils.js            # Utility functions
 ├── css/
-│   └── styles.css          # Styles
+│   └── styles.css          # Stylesheet
+├── Docs/                   # API documentation
+│   ├── API_authentication.md
+│   ├── API_Testing.md
+│   ├── Application_Design.md
+│   ├── Developer_Guidelines.md
+│   ├── Fuel_Finder_Public_API.md
+│   ├── Fuel_Finder_REST_API.md
+│   ├── Information_Recipient_APIs.md
+│   ├── OAuth_Access_Token_Generation_API.md
+│   ├── README.md
+│   └── Support.md
+├── errors/
+│   └── errors.html         # Error page
+├── stats/
+│   └── index.html          # Stats page
+├── about.html              # About page
 ├── index.html              # Home page
 ├── map.html                # Results page
-├── README.md               # This file
-└── INSTALL.md              # Detailed installation guide
+├── INSTALL.md              # Installation guide
+└── README.md               # This file
 ```
 
 ## API Endpoints

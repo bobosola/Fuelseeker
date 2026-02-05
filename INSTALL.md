@@ -106,7 +106,7 @@ https://your-domain.com/
 
 ## Database Update Options
 
-The fuel prices change throughout the day. The database should be updated twice daily (6 AM and 6 PM).
+The fuel prices change throughout the day. The database should be updated 3 times daily (06:00, 13:00 & 18:00).
 
 **⚠️ IMPORTANT**: The gov.uk Fuel Finder API is only accessible from UK IP addresses. If your server is outside the UK (e.g., Germany, US, etc.), the API will block requests with HTTP 403.
 
@@ -168,7 +168,7 @@ nordvpn connect United_Kingdom
 sleep 10
 
 # Run update
-/usr/bin/php /var/www/fuelseeker.net/scripts/update_data.php >> /var/www/fuelseeker.net/data/cron.log 2>&1
+/usr/bin/php /path/to/update_data.php >> /var/www/fuelseeker.net/data/cron.log 2>&1
 
 # Disconnect VPN
 nordvpn disconnect
@@ -310,7 +310,7 @@ fi
 # Run the update
 log "Running fuel data update..."
 cd "$FUEL_DIR"
-UPDATE_OUTPUT=$(/usr/bin/php "$FUEL_DIR/scripts/update_data.php" 2>&1)
+UPDATE_OUTPUT=$(/usr/bin/php path/to/update_data.php 2>&1)
 UPDATE_STATUS=$?
 
 echo "$UPDATE_OUTPUT" | while read line; do
@@ -362,11 +362,11 @@ User=root
 
 ```ini
 [Unit]
-Description=Run Fuel Finder VPN Update Twice Daily
+Description=Run Fuel Finder VPN Update three times Daily
 
 [Timer]
-# Run at 6:00 AM and 6:00 PM every day
-OnCalendar=*-*-* 06,18:00:00
+# Run at 06:00, 13:00 and 18:00 every day
+OnCalendar=*-*-* 06,13,18:00:00
 
 # Add a random delay up to 5 minutes to avoid server overload
 RandomizedDelaySec=5m
@@ -426,10 +426,11 @@ sudo nano /etc/systemd/system/fuel-update.timer
 Content:
 ```ini
 [Unit]
-Description=Run Fuel Finder update twice daily
+Description=Run Fuel Finder update three times daily
 
 [Timer]
-OnCalendar=*-*-* 06,18:00:00
+# Run at 06:00, 13:00 and 18:00 every day
+OnCalendar=*-*-* 06,13,18:00:00
 Persistent=true
 
 [Install]
