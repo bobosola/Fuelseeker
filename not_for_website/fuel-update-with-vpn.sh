@@ -4,7 +4,7 @@
 
 LOG_FILE="/var/www/fuelseeker.net/data/update.log"
 FUEL_DIR="/var/www/fuelseeker.net"
-UPDATE_SCRIPT="/usr/local/bin/update_data.php"
+UPDATE_SCRIPT="/usr/local/bin/update_data_safe.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"

@@ -168,7 +168,7 @@ nordvpn connect United_Kingdom
 sleep 10
 
 # Run update
-/usr/bin/php /path/to/update_data.php >> /var/www/fuelseeker.net/data/cron.log 2>&1
+/usr/bin/php /path/to/update_data.php >> /var/www/fuelseeker.net/data/update.log 2>&1
 
 # Disconnect VPN
 nordvpn disconnect
@@ -226,7 +226,7 @@ crontab -e
 Add this line to update at 6 AM and 6 PM daily:
 
 ```
-0 6,18 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php >> /path/to/fuel/data/cron.log 2>&1
+0 6,18 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php >> /path/to/fuel/data/update.log 2>&1
 ```
 
 Replace `/path/to/fuel` with your actual installation path.
@@ -235,12 +235,12 @@ Replace `/path/to/fuel` with your actual installation path.
 
 - cPanel/shared hosting:
 ```
-0 6,18 * * * /usr/bin/php /home/username/public_html/fuel/scripts/update_data.php >> /home/username/public_html/fuel/data/cron.log 2>&1
+0 6,18 * * * /usr/bin/php /home/username/public_html/fuel/scripts/update_data.php >> /home/username/public_html/fuel/data/update.log 2>&1
 ```
 
 - VPS/dedicated server:
 ```
-0 6,18 * * * /usr/bin/php /var/www/fuel/scripts/update_data.php >> /var/www/fuel/data/cron.log 2>&1
+0 6,18 * * * /usr/bin/php /var/www/fuel/scripts/update_data.php >> /var/www/fuel/data/update.log 2>&1
 ```
 
 ### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers)
@@ -272,8 +272,8 @@ ssh user@fuelseeker.net "sudo mv /tmp/update_data_safe.php /usr/local/bin/update
 #!/bin/bash
 # Update fuel database with UK VPN connection (Safe Version)
 
-LOG_FILE="/var/www/fuelseeker.net/data/cron.log"
-UPDATE_SCRIPT="/usr/local/bin/update_data.php"
+LOG_FILE="/var/www/fuelseeker.net/data/update.log"
+UPDATE_SCRIPT="/usr/loca/bin/update_data_safe.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -376,8 +376,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/fuel-update-with-vpn.sh
-StandardOutput=append:/var/www/fuelseeker.net/data/cron.log
-StandardError=append:/var/www/fuelseeker.net/data/cron.log
+StandardOutput=append:/var/www/fuelseeker.net/data/update.log
+StandardError=append:/var/www/fuelseeker.net/data/update.log
 
 # Note: This runs as root because nordvpn requires root privileges
 User=root
@@ -481,7 +481,7 @@ sudo systemctl list-timers --all
 2. Go to **Cron Jobs**
 3. Under **Add New Cron Job**, set:
    - **Common Settings**: Select "Twice a day (0 */12 * * *)" OR enter custom: `0 6,18 * * *`
-   - **Command**: `/usr/bin/php /home/username/public_html/fuel/scripts/update_data.php >> /home/username/public_html/fuel/data/cron.log 2>&1`
+   - **Command**: `/usr/bin/php /home/username/public_html/fuel/scripts/update_data.php >> /home/username/public_html/fuel/data/update.log 2>&1`
 4. Click **Add New Cron Job**
 
 ## Monitoring & Troubleshooting
@@ -496,7 +496,7 @@ curl https://your-domain.com/scripts/local_api.php?action=status
 
 ```bash
 # View cron log
-tail -f /path/to/fuel/data/cron.log
+tail -f /path/to/fuel/data/update.log
 
 # View error log (if any)
 tail /path/to/fuel/data/update_error.log
@@ -570,7 +570,7 @@ fuel/
 ├── data/                    (755 - writable by web server)
 │   ├── fuel_data.db        (644 or 666)
 │   ├── update.lock         (auto-created)
-│   ├── cron.log            (auto-created)
+│   ├── update.log            (auto-created)
 │   └── update_error.log    (auto-created)
 ├── scripts/
 │   ├── update_data.php     (644)

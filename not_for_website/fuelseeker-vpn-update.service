@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/fuel-update-with-vpn.sh
-StandardOutput=append:/var/www/fuelseeker.net/data/cron.log
-StandardError=append:/var/www/fuelseeker.net/data/cron.log
+StandardOutput=append:/var/www/fuelseeker.net/data/update.log
+StandardError=append:/var/www/fuelseeker.net/data/update.log
 
 # Security hardening
 NoNewPrivileges=true

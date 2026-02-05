@@ -13,7 +13,7 @@ if (php_sapi_name() !== 'cli') {
     exit(1);
 }
 
-require_once 'var/www/fuelseeker.net/scripts/config.php';
+require_once '/var/www/fuelseeker.net/scripts/config.php';
 
 // Validate that all required environment variables are set
 try {
