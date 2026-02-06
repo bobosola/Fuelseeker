@@ -10,7 +10,7 @@ Fuelseeker.net is a fast, lightweight web application for finding fuel stations 
 - Plain CSS3 with CSS variables
 - PHP 7.4+ backend for API proxying and database management
 - SQLite for local data caching
-- Updated once daily at 02:00 via cron job
+- Updated once daily at 02:00 via systemd timer (with VPN auto-connect for non-UK servers)
 
 ## Technology Stack
 
@@ -117,9 +117,12 @@ This project has **no build process**. Files are deployed as-is to the web serve
    ```
 4. **Run initial data population**:
    ```bash
-   php not_for_website/update_data_safe.php
-   # OR for production (zero-downtime):
-   php not_for_website/update_data_safe.php
+   # Copy to system location:
+   sudo cp not_for_website/update_data_safe.php /usr/local/bin/
+   sudo cp not_for_website/fuel-update-with-vpn.sh /usr/local/bin/
+   
+   # Run update (non-UK servers must use VPN wrapper):
+   sudo /usr/local/bin/fuel-update-with-vpn.sh
    ```
 
 ### Database Updates
@@ -128,7 +131,7 @@ The fuel prices change throughout the day. The database is updated once daily at
 
 ```bash
 # Crontab entry (once daily at 2 AM)
-0 2 * * * /usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php >> /path/to/fuel/data/update.log 2>&1
+# Systemd timer runs: /usr/local/bin/fuel-update-with-vpn.sh (non-UK) or /usr/local/bin/update_data_safe.php (UK)
 ```
 
 **Important:** The gov.uk Fuel Finder API is **UK-only**. Non-UK servers will get HTTP 403.
@@ -282,9 +285,13 @@ See `not_for_website/schema.sql` for full schema.
 3. **API**
    - `curl https://your-domain.com/scripts/local_api.php?action=status`
    - Should return JSON with station count and last update
+   
+4. **Database update**
+   - `sudo systemctl start fuelseeker-vpn-update.service` (test run)
+   - Check `/var/www/fuelseeker.net/data/update.log` for output
 
 4. **Database update**
-   - Run `php not_for_website/update_data_safe.php` manually
+   - Run `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_safe.php` (UK)
    - Check `data/update.log` for success
    - Verify `data/fuel_data.db` exists and is populated
 
@@ -295,7 +302,7 @@ This project does not have a test suite. Testing is manual.
 ## Common Issues
 
 ### "Database not initialized" Error
-Run: `php not_for_website/update_data_safe.php`
+Run: `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_safe.php` (UK)
 
 ### "Failed to get OAuth token" / HTTP 403
 Your server is outside the UK. See "Database Updates" section above for VPN solutions.

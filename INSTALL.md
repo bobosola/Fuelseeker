@@ -2,7 +2,7 @@
 
 ## Overview
 
-This application uses a local SQLite database to cache fuel station data for fast queries. The database is updated via a cron job that fetches data from the gov.uk Fuel Finder API.
+This application uses a local SQLite database to cache fuel station data for fast queries. The database is updated via a **systemd timer** (or cron job on UK servers) that fetches data from the gov.uk Fuel Finder API.
 
 ## Initial Setup
 
@@ -49,8 +49,14 @@ chmod 755 data
 
 Run the update script once to download all fuel station data:
 
+**Non-UK servers (using VPN):**
 ```bash
-php /path/to/fuel/not_for_website/update_data_safe.php
+sudo /usr/local/bin/fuel-update-with-vpn.sh
+```
+
+**UK servers:**
+```bash
+php /usr/local/bin/update_data_safe.php
 ```
 
 This will:
@@ -122,7 +128,8 @@ php not_for_website/update_data_safe.php
 
 **Then copy to your server:**
 ```bash
-scp data/fuel_data.db user@fuelseeker.net:/var/www/fuelseeker.net/data/
+scp data/fuel_data.db.v1 user@fuelseeker.net:/var/www/fuelseeker.net/data/
+# Then activate via symlink on server - see activation instructions
 ```
 
 You can set this up as a scheduled task on your UK computer (cron on Mac/Linux, Task Scheduler on Windows).
@@ -168,7 +175,7 @@ nordvpn connect United_Kingdom
 sleep 10
 
 # Run update
-/usr/bin/php /path/to/update_data.php >> /var/www/fuelseeker.net/data/update.log 2>&1
+/usr/bin/php /usr/local/bin/update_data_safe.php >> /var/www/fuelseeker.net/data/update.log 2>&1
 
 # Disconnect VPN
 nordvpn disconnect
@@ -206,9 +213,14 @@ If you have access to a UK proxy server, you can route API requests through it:
 
 Run a small, cheap UK-based VPS (DigitalOcean London, AWS London, etc.) solely for running the update script, then sync the database to your main server:
 
-**On UK VPS (cron job):**
+**On UK VPS (systemd timer or cron):**
 ```bash
-0 6,18 * * * /usr/bin/php /path/to/update_data.php && scp /path/to/data/fuel_data.db main-server:/var/www/fuelseeker.net/data/
+# Using systemd timer (recommended):
+# Copy update_data_safe.php to /usr/local/bin/ and use systemd service
+
+# Or using cron (UK servers only):
+0 2 * * * /usr/bin/php /usr/local/bin/update_data_safe.php && scp /var/www/fuelseeker.net/data/fuel_data.db.v1 main-server:/var/www/fuelseeker.net/data/
+# Then activate on main server via symlink swap
 ```
 
 ---
@@ -223,24 +235,11 @@ Edit your user's crontab:
 crontab -e
 ```
 
-Add this line to update at 6 AM and 6 PM daily:
+**⚠️ For non-UK servers: Do NOT use cron.** Use the systemd timer method below which handles VPN connection automatically.
 
+**Only for UK servers** (no VPN needed):
 ```
-0 2 * * * /usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php >> /path/to/fuel/data/update.log 2>&1
-```
-
-Replace `/path/to/fuel` with your actual installation path.
-
-**Examples:**
-
-- cPanel/shared hosting:
-```
-0 2 * * * /usr/bin/php /home/username/public_html/fuel/not_for_website/update_data_safe.php >> /home/username/public_html/fuel/data/update.log 2>&1
-```
-
-- VPS/dedicated server:
-```
-0 2 * * * /usr/bin/php /var/www/fuel/not_for_website/update_data_safe.php >> /var/www/fuel/data/update.log 2>&1
+0 2 * * * /usr/bin/php /usr/local/bin/update_data_safe.php >> /var/www/fuelseeker.net/data/update.log 2>&1
 ```
 
 ### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers) - Daily at 02:00
@@ -286,6 +285,9 @@ if [ ! -f "$UPDATE_SCRIPT" ]; then
     log "ERROR: Update script not found at $UPDATE_SCRIPT"
     exit 1
 fi
+
+# Important: Do NOT run update_data_safe.php directly on non-UK servers
+# This script (fuel-update-with-vpn.sh) handles the VPN connection first
 
 # Remove stale lock file if it exists
 LOCK_FILE="/var/www/fuelseeker.net/data/update.lock"
@@ -438,7 +440,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php
+ExecStart=/usr/local/bin/fuel-update-with-vpn.sh
 User=www-data
 ```
 
@@ -475,14 +477,23 @@ Check status:
 sudo systemctl list-timers --all
 ```
 
-### Option 4: cPanel Cron Jobs
+### Option 4: cPanel / Shared Hosting
+
+**⚠️ Important:** cPanel/shared hosting on **non-UK servers** is not supported because:
+- You cannot install NordVPN CLI without root access
+- You cannot install scripts to `/usr/local/bin/`
+- The Fuel API will block requests with HTTP 403
+
+**For UK-based shared hosting only:**
 
 1. Log in to cPanel
 2. Go to **Cron Jobs**
 3. Under **Add New Cron Job**, set:
-   - **Common Settings**: Select "Twice a day (0 */12 * * *)" OR enter custom: `0 6,18 * * *`
+   - **Common Settings**: Select "Once a day" OR enter custom: `0 2 * * *`
    - **Command**: `/usr/bin/php /home/username/public_html/fuel/not_for_website/update_data_safe.php >> /home/username/public_html/fuel/data/update.log 2>&1`
 4. Click **Add New Cron Job**
+
+**For non-UK shared hosting:** Use Option 1 (copy from a UK computer) instead.
 
 ## How the Safe Update Works
 
@@ -563,7 +574,7 @@ tail /path/to/fuel/data/update_error.log
 If you need to force an update:
 
 ```bash
-php /path/to/fuel/not_for_website/update_data_safe.php
+sudo /usr/local/bin/fuel-update-with-vpn.sh
 ```
 
 ### Common Issues
@@ -574,7 +585,7 @@ php /path/to/fuel/not_for_website/update_data_safe.php
 
 **Fix**: Run the update script manually:
 ```bash
-php /path/to/fuel/not_for_website/update_data_safe.php
+sudo /usr/local/bin/fuel-update-with-vpn.sh
 ```
 
 #### 2. "Failed to get OAuth token" / HTTP 403 from CloudFront
@@ -614,7 +625,7 @@ which php
 
 **Test**: Run the command manually to see any errors:
 ```bash
-/usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php
+/usr/bin/sudo /usr/local/bin/fuel-update-with-vpn.sh
 ```
 
 ## File Permissions

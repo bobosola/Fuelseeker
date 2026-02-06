@@ -16,7 +16,7 @@ A fast web application to find fuel stations and compare petrol and diesel price
 Unlike typical apps that query an API every time you search, Fuelseeker.net:
 
 1. **Downloads all UK fuel station data** (~7,000 stations) to a local SQLite database
-2. **Updates once daily at 02:00** via cron job to keep prices current
+2. **Updates once daily at 02:00** via systemd timer to keep prices current (auto-connects VPN for non-UK servers)
 3. **Queries locally** for instant results - no network delays!
 
 ## Quick Start
@@ -36,7 +36,13 @@ mkdir data
 chmod 755 data
 
 # Download initial fuel data (takes 2-3 minutes)
-php not_for_website/update_data_safe.php
+# First copy scripts to system location:
+sudo cp not_for_website/update_data_safe.php /usr/local/bin/
+sudo cp not_for_website/fuel-update-with-vpn.sh /usr/local/bin/
+
+# Then run (non-UK servers must use VPN wrapper):
+# UK servers: php /usr/local/bin/update_data_safe.php
+# Non-UK servers: sudo /usr/local/bin/fuel-update-with-vpn.sh
 ```
 
 **Note:** API credentials are stored in `.env` (not committed to Git). Copy `.env.example` to `.env` and fill in your credentials.
@@ -47,13 +53,9 @@ Open `https://your-domain.com/` in your browser.
 
 ### 3. Set Up Automatic Updates
 
-Add to crontab (`crontab -e`):
+Set up automatic updates using **systemd timer** (recommended) - see [INSTALL.md](INSTALL.md) for details.
 
-```
-0 2 * * * /usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php >> /path/to/fuel/data/update.log 2>&1
-```
-
-This updates the database once daily at 02:00 (low traffic time).
+The update runs once daily at 02:00 (UK quiet time) using a VPN connection for non-UK servers.
 
 ## Detailed Installation
 
@@ -159,7 +161,7 @@ fuel/
 ## Troubleshooting
 
 ### Database not initialized
-Run: `php not_for_website/update_data_safe.php`
+Run: `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK servers) or `php /usr/local/bin/update_data_safe.php` (UK servers)
 
 ### Permission errors
 ```bash
