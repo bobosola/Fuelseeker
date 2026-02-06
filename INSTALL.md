@@ -243,7 +243,7 @@ Replace `/path/to/fuel` with your actual installation path.
 0 6,18 * * * /usr/bin/php /var/www/fuel/scripts/update_data.php >> /var/www/fuel/data/update.log 2>&1
 ```
 
-### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers)
+### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers) - Daily at 02:00
 
 For servers outside the UK, use a systemd service with the VPN wrapper script and safe update mechanism.
 
@@ -387,14 +387,14 @@ User=root
 
 ```ini
 [Unit]
-Description=Run Fuel Finder VPN Update three times Daily
+Description=Run Fuel Finder VPN Update Daily at 02:00
 
 [Timer]
-# Run at 06:00, 13:00 and 18:00 every day
-OnCalendar=*-*-* 06,13,18:00:00
+# Run at 02:00 every day (low traffic time)
+OnCalendar=*-*-* 02:00:00
 
-# Add a random delay up to 5 minutes to avoid server overload
-RandomizedDelaySec=5m
+# Add a random delay up to 10 minutes to avoid server overload
+RandomizedDelaySec=10m
 
 # Ensure it runs if system was off at scheduled time
 Persistent=true
@@ -420,7 +420,7 @@ sudo journalctl -u fuelseeker-vpn-update.service --since "1 hour ago"
 
 ---
 
-### Option 3: Using Systemd Timer (Linux VPS - UK Servers)
+### Option 3: Using Systemd Timer (Linux VPS - UK Servers) - Daily at 02:00
 
 For UK-based servers (no VPN needed), create a simpler systemd service:
 
@@ -451,11 +451,11 @@ sudo nano /etc/systemd/system/fuel-update.timer
 Content:
 ```ini
 [Unit]
-Description=Run Fuel Finder update three times daily
+Description=Run Fuel Finder update daily at 02:00
 
 [Timer]
-# Run at 06:00, 13:00 and 18:00 every day
-OnCalendar=*-*-* 06,13,18:00:00
+# Run at 02:00 every day (low traffic time)
+OnCalendar=*-*-* 02:00:00
 Persistent=true
 
 [Install]

@@ -16,7 +16,7 @@ A fast web application to find fuel stations and compare petrol and diesel price
 Unlike typical apps that query an API every time you search, Fuelseeker.net:
 
 1. **Downloads all UK fuel station data** (~7,000 stations) to a local SQLite database
-2. **Updates twice daily** via cron job to keep prices current
+2. **Updates once daily at 02:00** via cron job to keep prices current
 3. **Queries locally** for instant results - no network delays!
 
 ## Quick Start
@@ -53,7 +53,7 @@ Add to crontab (`crontab -e`):
 0 6,18 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php
 ```
 
-This updates the database at 6 AM and 6 PM daily.
+This updates the database once daily at 2 AM.
 
 ## Detailed Installation
 

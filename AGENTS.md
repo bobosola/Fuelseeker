@@ -10,7 +10,7 @@ Fuelseeker.net is a fast, lightweight web application for finding fuel stations 
 - Plain CSS3 with CSS variables
 - PHP 7.4+ backend for API proxying and database management
 - SQLite for local data caching
-- Updated twice daily via cron jobs
+- Updated once daily at 02:00 via cron job
 
 ## Technology Stack
 
@@ -67,7 +67,7 @@ fuel/
 │   ├── update_data_safe.php # Zero-downtime update script (CLI only)
 │   ├── fuel-update-with-vpn.sh # VPN wrapper for non-UK servers
 │   ├── fuelseeker-vpn-update.service # systemd service file
-│   └── fuelseeker-vpn-update.timer   # systemd timer file
+│   └── fuelseeker-vpn-update.timer   # systemd timer file (runs once daily at 02:00)
 └── errors/                 # Error page templates
 ```
 
@@ -124,11 +124,11 @@ This project has **no build process**. Files are deployed as-is to the web serve
 
 ### Database Updates
 
-The fuel prices change throughout the day. Update the database 2-3 times daily via cron:
+The fuel prices change throughout the day. The database is updated once daily at 02:00 to minimize server impact:
 
 ```bash
-# Crontab entry (twice daily at 6 AM and 6 PM)
-0 6,18 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php >> /path/to/fuel/data/update.log 2>&1
+# Crontab entry (once daily at 2 AM)
+0 2 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php >> /path/to/fuel/data/update.log 2>&1
 ```
 
 **Important:** The gov.uk Fuel Finder API is **UK-only**. Non-UK servers will get HTTP 403.
