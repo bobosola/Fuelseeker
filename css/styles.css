@@ -445,10 +445,23 @@ main {
 }
 
 .station-address {
-    margin: 0 0 0.3rem;
+    margin: 0.1rem 0 0.2rem;
     font-size: 0.8rem;
     color: var(--text-light);
     line-height: 1.2;
+}
+
+.google-maps-link {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: var(--secondary-color);
+    text-decoration: none;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.google-maps-link:hover {
+    text-decoration: underline;
 }
 
 .station-prices {
@@ -756,12 +769,17 @@ main {
     .station-status {
         font-size: 0.6rem;
         padding: 0.05rem 0.25rem;
-        margin-bottom: 0.1rem;
+        margin-bottom: 0.05rem;
+    }
+    
+    .google-maps-link {
+        font-size: 0.7rem;
+        line-height: 1.1;
     }
     
     .station-address {
         font-size: 0.75rem;
-        margin-bottom: 0.2rem;
+        margin: 0.05rem 0 0.15rem;
         line-height: 1.15;
     }
     

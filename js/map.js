@@ -220,11 +220,15 @@ function createPopupContent(station, open) {
     const openingInfo = formatOpeningTimes(station.opening_times);
     const statusText = open ? 'Open' : 'Closed';
     const statusClass = open ? 'open' : 'closed';
+    const lat = parseFloat(station.location.latitude);
+    const lng = parseFloat(station.location.longitude);
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
     
     return `
         <div class="station-popup">
             <h3>${escapeHtml(station.trading_name || station.brand_name || 'Unknown Station')}</h3>
             <p class="station-status ${statusClass}">${statusText}</p>
+            <a href="${googleMapsUrl}" target="_blank" rel="noopener noreferrer" class="google-maps-link">view in Google maps</a>
             <p class="station-address">${escapeHtml(address)}</p>
             <div class="station-prices">
                 <div class="price-row">
