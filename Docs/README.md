@@ -1,8 +1,21 @@
-# Documents
+# Fuelseeker.net documents 
 
-Read the documents in this order:
+## Initial instruction for agent
 
-* Application Design: [Application_Design](Application_Design.md)
+* Initial design doc: [Application_Design](Application_Design.md)
+
+## Agent-written docs
+
+* `AGENTS.MD` in the site root
+* `INSTALL.MD` in the site root
+* `README.MD` in the site root
+* `README.MD` in not_for_website
+
+
+## Fuel Finder API documents from gov.uk
+
+Read these documents in this order:
+
 * API Overview: [Fuel Finder REST API](Fuel_Finder_REST_API.md)
 * Prerequisites: [Fuel Finder Public API](Fuel_Finder_Public_API.md)
 * How to authenticate: [API authentication](API_authentication.md)
