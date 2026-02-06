@@ -117,7 +117,7 @@ This project has **no build process**. Files are deployed as-is to the web serve
    ```
 4. **Run initial data population**:
    ```bash
-   php scripts/update_data.php
+   php not_for_website/update_data_safe.php
    # OR for production (zero-downtime):
    php not_for_website/update_data_safe.php
    ```
@@ -128,7 +128,7 @@ The fuel prices change throughout the day. The database is updated once daily at
 
 ```bash
 # Crontab entry (once daily at 2 AM)
-0 2 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php >> /path/to/fuel/data/update.log 2>&1
+0 2 * * * /usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php >> /path/to/fuel/data/update.log 2>&1
 ```
 
 **Important:** The gov.uk Fuel Finder API is **UK-only**. Non-UK servers will get HTTP 403.
@@ -284,7 +284,7 @@ See `not_for_website/schema.sql` for full schema.
    - Should return JSON with station count and last update
 
 4. **Database update**
-   - Run `php scripts/update_data.php` manually
+   - Run `php not_for_website/update_data_safe.php` manually
    - Check `data/update.log` for success
    - Verify `data/fuel_data.db` exists and is populated
 
@@ -295,7 +295,7 @@ This project does not have a test suite. Testing is manual.
 ## Common Issues
 
 ### "Database not initialized" Error
-Run: `php scripts/update_data.php`
+Run: `php not_for_website/update_data_safe.php`
 
 ### "Failed to get OAuth token" / HTTP 403
 Your server is outside the UK. See "Database Updates" section above for VPN solutions.

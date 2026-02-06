@@ -36,7 +36,7 @@ mkdir data
 chmod 755 data
 
 # Download initial fuel data (takes 2-3 minutes)
-php scripts/update_data.php
+php not_for_website/update_data_safe.php
 ```
 
 **Note:** API credentials are stored in `.env` (not committed to Git). Copy `.env.example` to `.env` and fill in your credentials.
@@ -50,10 +50,10 @@ Open `https://your-domain.com/` in your browser.
 Add to crontab (`crontab -e`):
 
 ```
-0 6,18 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php
+0 2 * * * /usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php >> /path/to/fuel/data/update.log 2>&1
 ```
 
-This updates the database once daily at 2 AM.
+This updates the database once daily at 02:00 (low traffic time).
 
 ## Detailed Installation
 
@@ -83,16 +83,22 @@ See **[INSTALL.md](INSTALL.md)** for complete installation instructions includin
 ```
 fuel/
 ├── data/                   # SQLite database (auto-created)
-│   ├── fuel_data.db
-│   ├── cron.log
-│   └── update_error.log
-├── scripts/                # PHP backend scripts
+│   ├── fuel_data.db        # Symlink to active database
+│   ├── fuel_data.db.v1     # Database file (alternating)
+│   ├── fuel_data.db.v2     # Database file (alternating)
+│   ├── update.log          # Update logs
+│   └── update_error.log    # Error logs
+├── not_for_website/        # Server-side scripts (not web accessible)
+│   ├── update_data_safe.php    # Safe update script with zero-downtime swap
+│   ├── schema.sql              # Database schema
+│   └── fuel-update-with-vpn.sh # VPN wrapper script
+├── scripts/                # PHP backend scripts (web accessible)
 │   ├── api_proxy.php       # Fuel Finder API proxy
 │   ├── config.php          # Configuration loader
 │   ├── local_api.php       # Fast local API endpoints
 │   ├── os_token.php        # Ordnance Survey token handler
 │   ├── token.php           # CSRF token handler
-│   └── schema.sql          # Database schema
+│   └── .env                # API credentials (gitignored)
 ├── js/                     # JavaScript modules
 │   ├── api.js              # API calls
 │   ├── index.js            # Home page logic
@@ -153,7 +159,7 @@ fuel/
 ## Troubleshooting
 
 ### Database not initialized
-Run: `php scripts/update_data.php`
+Run: `php not_for_website/update_data_safe.php`
 
 ### Permission errors
 ```bash

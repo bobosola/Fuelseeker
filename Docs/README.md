@@ -10,5 +10,5 @@ Read the documents in this order:
 * OAuth API details: [OAuth_Access_Token_Generation_API](OAuth_Access_Token_Generation_API.md)
 * Main API details: [Information Recipient APIs](Information_Recipient_APIs.md)
 * Testing: [API Testing](API_Testing.md)
-* General developer guidlines & advice : [Developer Guidelines](Developer_Guidelines.md)
+* General developer guidelines & advice : [Developer Guidelines](Developer_Guidelines.md)
 * Support information: [Support](support.md)

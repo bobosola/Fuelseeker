@@ -50,7 +50,7 @@ chmod 755 data
 Run the update script once to download all fuel station data:
 
 ```bash
-php /path/to/fuel/scripts/update_data.php
+php /path/to/fuel/not_for_website/update_data_safe.php
 ```
 
 This will:
@@ -106,7 +106,7 @@ https://your-domain.com/
 
 ## Database Update Options
 
-The fuel prices change throughout the day. The database should be updated 3 times daily (06:00, 13:00 & 18:00).
+The fuel prices change throughout the day. The database is updated once daily at 02:00 (UK quiet period) to minimize server load. This is sufficient as prices typically don't change rapidly.
 
 **⚠️ IMPORTANT**: The gov.uk Fuel Finder API is only accessible from UK IP addresses. If your server is outside the UK (e.g., Germany, US, etc.), the API will block requests with HTTP 403.
 
@@ -117,7 +117,7 @@ If you have a UK-based computer (home/office), run the update locally and copy t
 **On your UK computer:**
 ```bash
 cd /path/to/fuel
-php scripts/update_data.php
+php not_for_website/update_data_safe.php
 ```
 
 **Then copy to your server:**
@@ -195,7 +195,7 @@ If NordVPN supports SOCKS5 proxy, you can configure curl to use it without conne
 
 If you have access to a UK proxy server, you can route API requests through it:
 
-1. Edit `scripts/update_data.php` and `scripts/api_proxy.php`
+1. Edit `not_for_website/update_data_safe.php` and `scripts/api_proxy.php`
 2. Add proxy options to curl calls:
    ```php
    curl_setopt($ch, CURLOPT_PROXY, 'your-uk-proxy.com:8080');
@@ -226,7 +226,7 @@ crontab -e
 Add this line to update at 6 AM and 6 PM daily:
 
 ```
-0 6,18 * * * /usr/bin/php /path/to/fuel/scripts/update_data.php >> /path/to/fuel/data/update.log 2>&1
+0 2 * * * /usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php >> /path/to/fuel/data/update.log 2>&1
 ```
 
 Replace `/path/to/fuel` with your actual installation path.
@@ -235,12 +235,12 @@ Replace `/path/to/fuel` with your actual installation path.
 
 - cPanel/shared hosting:
 ```
-0 6,18 * * * /usr/bin/php /home/username/public_html/fuel/scripts/update_data.php >> /home/username/public_html/fuel/data/update.log 2>&1
+0 2 * * * /usr/bin/php /home/username/public_html/fuel/not_for_website/update_data_safe.php >> /home/username/public_html/fuel/data/update.log 2>&1
 ```
 
 - VPS/dedicated server:
 ```
-0 6,18 * * * /usr/bin/php /var/www/fuel/scripts/update_data.php >> /var/www/fuel/data/update.log 2>&1
+0 2 * * * /usr/bin/php /var/www/fuel/not_for_website/update_data_safe.php >> /var/www/fuel/data/update.log 2>&1
 ```
 
 ### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers) - Daily at 02:00
@@ -256,7 +256,7 @@ This is the database update script with automatic backup and restore:
 ```bash
 # Copy the safe update script to your server
 scp not_for_website/update_data_safe.php user@fuelseeker.net:/tmp/
-ssh user@fuelseeker.net "sudo mv /tmp/update_data_safe.php /usr/local/bin/update_data.php"
+ssh user@fuelseeker.net "sudo mv /tmp/update_data_safe.php /usr/local/bin/update_data_safe.php"
 ```
 
 **Features of the safe update script:**
@@ -273,7 +273,7 @@ ssh user@fuelseeker.net "sudo mv /tmp/update_data_safe.php /usr/local/bin/update
 # Update fuel database with UK VPN connection (Safe Version)
 
 LOG_FILE="/var/www/fuelseeker.net/data/update.log"
-UPDATE_SCRIPT="/usr/loca/bin/update_data_safe.php"
+UPDATE_SCRIPT="/usr/local/bin/update_data_safe.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -438,7 +438,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/php /path/to/fuel/scripts/update_data.php
+ExecStart=/usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php
 User=www-data
 ```
 
@@ -481,7 +481,7 @@ sudo systemctl list-timers --all
 2. Go to **Cron Jobs**
 3. Under **Add New Cron Job**, set:
    - **Common Settings**: Select "Twice a day (0 */12 * * *)" OR enter custom: `0 6,18 * * *`
-   - **Command**: `/usr/bin/php /home/username/public_html/fuel/scripts/update_data.php >> /home/username/public_html/fuel/data/update.log 2>&1`
+   - **Command**: `/usr/bin/php /home/username/public_html/fuel/not_for_website/update_data_safe.php >> /home/username/public_html/fuel/data/update.log 2>&1`
 4. Click **Add New Cron Job**
 
 ## How the Safe Update Works
@@ -563,7 +563,7 @@ tail /path/to/fuel/data/update_error.log
 If you need to force an update:
 
 ```bash
-php /path/to/fuel/scripts/update_data.php
+php /path/to/fuel/not_for_website/update_data_safe.php
 ```
 
 ### Common Issues
@@ -574,7 +574,7 @@ php /path/to/fuel/scripts/update_data.php
 
 **Fix**: Run the update script manually:
 ```bash
-php /path/to/fuel/scripts/update_data.php
+php /path/to/fuel/not_for_website/update_data_safe.php
 ```
 
 #### 2. "Failed to get OAuth token" / HTTP 403 from CloudFront
@@ -614,7 +614,7 @@ which php
 
 **Test**: Run the command manually to see any errors:
 ```bash
-/usr/bin/php /path/to/fuel/scripts/update_data.php
+/usr/bin/php /path/to/fuel/not_for_website/update_data_safe.php
 ```
 
 ## File Permissions
