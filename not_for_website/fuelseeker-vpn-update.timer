@@ -1,14 +1,10 @@
 [Unit]
-Description=Run Fuel Finder VPN Update Daily at 2 AM
+Description=Run FuelSeeker update every 4 hours
+Requires=fuelseeker-vpn-update.service
 
 [Timer]
-# Run at 2:00 AM every day (low traffic time)
-OnCalendar=*-*-* 02:00:00
-
-# Add a random delay up to 10 minutes to avoid server overload
-RandomizedDelaySec=10m
-
-# Ensure it runs if system was off at scheduled time
+OnCalendar=*-*-* 02,06,10,14,18,22:00:00
+RandomizedDelaySec=300    # Add 0-5 min random delay to spread load
 Persistent=true
 
 [Install]

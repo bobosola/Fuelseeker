@@ -114,6 +114,12 @@ try {
     $db = new PDO('sqlite:' . $targetVersion);
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
+    // Performance and concurrency optimizations
+    $db->exec('PRAGMA journal_mode = WAL');
+    $db->exec('PRAGMA synchronous = NORMAL');
+    $db->exec('PRAGMA cache_size = -32768'); // 32MB cache
+    $db->exec('PRAGMA temp_store = MEMORY');
+    
     $schema = file_get_contents('/home/bobosola/schema.sql');
     $db->exec($schema);
     

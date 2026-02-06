@@ -1,20 +1,14 @@
 #!/bin/bash
-# Update fuel database with UK VPN connection (Safe Version)
+set -e
 
 LOG_FILE="/var/www/fuelseeker.net/data/update.log"
-UPDATE_SCRIPT="/usr/local/bin/update_data.php"
+UPDATE_SCRIPT="/usr/ocal/bin/update_data_safe.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-log "=== Starting Fuel Update (Safe Mode) ==="
-
-# Check if update script exists
-if [ ! -f "$UPDATE_SCRIPT" ]; then
-    log "ERROR: Update script not found at $UPDATE_SCRIPT"
-    exit 1
-fi
+log "Starting fuel update..."
 
 # Remove stale lock file if it exists
 LOCK_FILE="/var/www/fuelseeker.net/data/update.lock"
@@ -23,67 +17,46 @@ if [ -f "$LOCK_FILE" ]; then
     rm -f "$LOCK_FILE"
 fi
 
-# Check if we can reach the API without VPN
-log "Testing API access without VPN..."
-API_TEST=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
-    "https://www.fuel-finder.service.gov.uk/api/v1/pfs?batch-number=1" 2>/dev/null)
-log "API test HTTP code: $API_TEST"
+# Whitelist SSH to prevent connection drop during VPN
+log "Whitelisting SSH port..."
+nordvpn whitelist add port 22 >/dev/null 2>&1 || true
 
-if [ "$API_TEST" = "200" ]; then
-    log "API accessible without VPN"
-    VPN_NEEDED=false
-else
-    log "API not accessible without VPN (HTTP $API_TEST) - need VPN"
-    VPN_NEEDED=true
+# Connect VPN
+log "Connecting to NordVPN UK server..."
+nordvpn connect United_Kingdom
+sleep 10
+
+# Check connection
+if ! nordvpn status | grep -q "Connected"; then
+    log "ERROR: VPN not connected"
+    nordvpn whitelist remove port 22 >/dev/null 2>&1 || true
+    exit 1
 fi
 
-# Only use VPN if needed
-if [ "$VPN_NEEDED" = true ]; then
-    log "Whitelisting SSH port to prevent connection drop..."
-    nordvpn whitelist add port 22
-    
-    log "Connecting to NordVPN UK server..."
-    nordvpn connect United_Kingdom
-    
-    if [ $? -ne 0 ]; then
-        log "ERROR: Failed to connect to VPN"
-        exit 1
-    fi
-    
-    log "Waiting for VPN connection..."
-    sleep 10
-    
-    if ! nordvpn status | grep -q "Connected"; then
-        log "ERROR: VPN not connected"
-        exit 1
-    fi
-    
-    log "VPN connected successfully"
+log "VPN connected successfully"
+
+# Verify API is reachable
+if ! curl -s --max-time 10 https://www.fuel-finder.service.gov.uk >/dev/null; then
+    log "ERROR: Cannot reach fuel API"
+    nordvpn disconnect >/dev/null 2>&1 || true
+    nordvpn whitelist remove port 22 >/dev/null 2>&1 || true
+    exit 1
 fi
 
-# Run the update (safe version with backup)
-log "Running fuel data update (safe mode)..."
-UPDATE_OUTPUT=$(php "$UPDATE_SCRIPT" 2>&1)
-UPDATE_STATUS=$?
+# Run update
+log "Running update script..."
+/usr/bin/php "$UPDATE_SCRIPT" 2>&1 | tee -a "$LOG_FILE"
+UPDATE_STATUS=${PIPESTATUS[0]}
 
-echo "$UPDATE_OUTPUT" | while read line; do
-    log "  $line"
-done
+# Disconnect VPN
+log "Disconnecting VPN..."
+nordvpn disconnect >/dev/null 2>&1 || true
+nordvpn whitelist remove port 22 >/dev/null 2>&1 || true
 
 if [ $UPDATE_STATUS -eq 0 ]; then
     log "Update completed successfully"
 else
     log "ERROR: Update failed with status $UPDATE_STATUS"
-    log "Database backup was restored automatically if needed"
 fi
 
-# Disconnect VPN if we connected
-if [ "$VPN_NEEDED" = true ]; then
-    log "Disconnecting VPN..."
-    echo "n" | nordvpn disconnect > /dev/null 2>&1
-    log "Removing SSH whitelist..."
-    nordvpn whitelist remove port 22 > /dev/null 2>&1
-fi
-
-log "=== Update Process Complete ==="
 exit $UPDATE_STATUS
