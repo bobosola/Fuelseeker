@@ -306,6 +306,14 @@ main {
     color: var(--text-muted);
 }
 
+.last-updated {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0.5rem 0 0;
+    font-style: italic;
+}
+
 /*footer {
     background-color: var(--bg-white);
     border-top: 1px solid var(--border-color);

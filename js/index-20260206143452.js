@@ -8,15 +8,18 @@ import {
     hideError,
     showLoading,
     debounce
-} from './utils-20260206130251.js';
+} from './utils-20260206143452.js';
 
-import { getCurrentPosition } from './api-20260206130251.js';
+import { getCurrentPosition } from './api-20260206143452.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const postcodeInput = document.getElementById('postcode');
     const placeInput = document.getElementById('place');
     const btnSearch = document.getElementById('btnSearch');
     const btnLocateMe = document.getElementById('btnLocateMe');
+    
+    // Load last update time
+    loadLastUpdated();
     
     postcodeInput.addEventListener('input', debounce(() => {
         if (postcodeInput.value.trim()) {
@@ -94,5 +97,30 @@ async function handleLocateMe() {
     } catch (error) {
         showLoading('loadingIndicator', false);
         showError('errorMessage', error.message);
+    }
+}
+
+async function loadLastUpdated() {
+    const lastUpdatedEl = document.getElementById('lastUpdated');
+    if (!lastUpdatedEl) return;
+    
+    try {
+        const response = await fetch('/scripts/local_api.php?action=status');
+        if (!response.ok) throw new Error('Failed to fetch status');
+        
+        const data = await response.json();
+        if (data.last_update) {
+            const date = new Date(data.last_update);
+            const day = date.toLocaleString('en-GB', { day: '2-digit' });
+            const month = date.toLocaleString('en-GB', { month: 'short' });
+            const year = date.toLocaleString('en-GB', { year: '2-digit' });
+            const time = date.toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const formatted = `${day}-${month}-${year}, ${time}`;
+            lastUpdatedEl.textContent = `Data last updated: ${formatted}`;
+        } else {
+            lastUpdatedEl.textContent = '';
+        }
+    } catch (error) {
+        lastUpdatedEl.textContent = '';
     }
 }

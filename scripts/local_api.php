@@ -199,6 +199,26 @@ function getStatus($db) {
     
     $lastUpdate = $db->query("SELECT value FROM cache_metadata WHERE key = 'last_update'")->fetchColumn();
     
+    // Get file modification times of both database files
+    $dataDir = dirname(DB_PATH);
+    $v1File = $dataDir . '/fuel_data.db.v1';
+    $v2File = $dataDir . '/fuel_data.db.v2';
+    
+    $v1Time = file_exists($v1File) ? filemtime($v1File) : 0;
+    $v2Time = file_exists($v2File) ? filemtime($v2File) : 0;
+    
+    // Use the most recent file modification time
+    $fileTime = max($v1Time, $v2Time);
+    
+    // Format as ISO date for consistency with database timestamp
+    if ($fileTime > 0) {
+        $fileUpdate = date('Y-m-d H:i:s', $fileTime);
+        // Use file time if it's more recent than the metadata timestamp
+        if (!$lastUpdate || $fileTime > strtotime($lastUpdate)) {
+            $lastUpdate = $fileUpdate;
+        }
+    }
+    
     echo json_encode([
         'total_stations' => intval($stationCount),
         'stations_with_prices' => intval($priceCount),
