@@ -2,7 +2,7 @@
 set -e
 
 LOG_FILE="/var/www/fuelseeker.net/data/update.log"
-UPDATE_SCRIPT="/usr/ocal/bin/update_data_safe.php"
+UPDATE_SCRIPT="/usr/local/bin/update_data_safe.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
