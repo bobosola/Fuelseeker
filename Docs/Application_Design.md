@@ -4,7 +4,7 @@
 
 This is a website application to be written in HTML5, ES9 Javascript and CSS. Avoid using very recent JS and CSS features, aim to use features which can be read and understood in browsers from around 2020 onwards. There is no need to support older browsers. 
 
-Do NOT use any libraries such as React or Angular. Use plain vanilla Javascript & plain CSS. The site should not require any kind of build tool like Webpack etc. The site should be fully readable when doing a 'View Source' in a browser. Minifcation or any other code obscuring techniques must not be used. Use import maps where possible.
+Do NOT use any libraries such as React or Angular. Use plain vanilla Javascript & plain CSS. The site should not require any kind of build tool like Webpack etc. The site should be fully readable when doing a 'View Source' in a browser. Minification or any other code obscuring techniques must not be used. Use import maps where possible.
 
 There is no requirement for application monitoring or logging, so you can ignore that advice in Developer_Guidelines.md.
 
