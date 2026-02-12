@@ -9,25 +9,46 @@
 const DB_PATH = __DIR__ . '/../data/fuel_data.db';
 
 // ============================================================================
-// CORS (Cross-Origin Resource Sharing) Headers
+// Security: Only allow requests from this site
 // ============================================================================
-// Browsers block requests between different origins (domains) for security.
-// These headers tell the browser "it's OK to accept responses from this server"
-// even if the request came from a different domain.
-//
-// Access-Control-Allow-Origin: *  = Allow any website to call this API
-// Access-Control-Allow-Methods:   = Which HTTP methods are allowed (GET, POST, etc)
-// Access-Control-Allow-Headers:   = Which custom headers are allowed
-//
-// Note: For this Fuel Finder app, the frontend and API are on the same origin
-// (localhost:8085), so these aren't strictly needed. But they're included for
-// future flexibility (e.g., if the API moves to a different subdomain).
+// This API should only be accessible from pages on the same domain.
+// We check the Origin/Referer header to block external requests.
 // ============================================================================
 
+$allowedOrigins = [
+    'https://fuelseeker.net',
+    'https://www.fuelseeker.net',
+    // Add localhost for development if needed:
+     'http://localhost:8085',
+     'http://127.0.0.1:8085',
+];
+
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$referer = $_SERVER['HTTP_REFERER'] ?? '';
+
+// Check if request is from an allowed page on our site
+// This blocks: external sites, direct browser access, curl without headers
+$isAllowed = false;
+foreach ($allowedOrigins as $allowed) {
+    if (strpos($origin, $allowed) === 0 || strpos($referer, $allowed) === 0) {
+        $isAllowed = true;
+        break;
+    }
+}
+
+// Block external requests (unless it's an OPTIONS preflight)
+if (!$isAllowed && $_SERVER['REQUEST_METHOD'] !== 'OPTIONS') {
+    http_response_code(403);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Access denied. API is for site use only.']);
+    exit;
+}
+
+// CORS headers - only allow same-origin requests
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');   // Allow requests from any origin
-header('Access-Control-Allow-Methods: GET, OPTIONS');  // Allowed HTTP methods
-header('Access-Control-Allow-Headers: Content-Type');  // Allowed custom headers
+header('Access-Control-Allow-Origin: ' . ($origin && $isAllowed ? $origin : 'null'));
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
 // ============================================================================
 // Handle CORS "Preflight" OPTIONS Requests
@@ -77,11 +98,19 @@ try {
             break;
             
         default:
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid action. Use: search, nearby, or status']);
+            // Invalid action - return 200 but with error message (avoids Caddy's error page)
+            header('Content-Type: application/json');
+            $response = json_encode(['error' => 'Invalid action. Use: search, nearby, or status']);
+            if ($response === false) {
+                echo '{"error":"JSON encoding failed"}';
+            } else {
+                echo $response;
+            }
+            exit;
     }
 } catch (Exception $e) {
     http_response_code(500);
+    header('Content-Type: application/json');
     echo json_encode(['error' => $e->getMessage()]);
 }
 

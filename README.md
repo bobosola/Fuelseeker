@@ -16,7 +16,7 @@ A fast web application to find fuel stations and compare petrol and diesel price
 Unlike typical apps that query an API every time you search, Fuelseeker.net:
 
 1. **Downloads all UK fuel station data** (~7,000 stations) to a local SQLite database
-2. **Updates once daily at 02:00** via systemd timer to keep prices current (auto-connects VPN for non-UK servers)
+2. **Updates 3x daily** via systemd timer to keep prices current (auto-connects VPN for non-UK servers)
 3. **Queries locally** for instant results - no network delays!
 
 ## Quick Start
@@ -35,13 +35,13 @@ cp .env.example .env
 mkdir data
 chmod 755 data
 
-# Download initial fuel data (takes 2-3 minutes)
+# Download initial fuel data (takes 1-2 minutes)
 # First copy scripts to system location:
-sudo cp not_for_website/update_data_safe.php /usr/local/bin/
+sudo cp not_for_website/update_data_streaming.php /usr/local/bin/
 sudo cp not_for_website/fuel-update-with-vpn.sh /usr/local/bin/
 
 # Then run (non-UK servers must use VPN wrapper):
-# UK servers: php /usr/local/bin/update_data_safe.php
+# UK servers: php /usr/local/bin/update_data_streaming.php
 # Non-UK servers: sudo /usr/local/bin/fuel-update-with-vpn.sh
 ```
 
@@ -55,7 +55,7 @@ Open `https://your-domain.com/` in your browser.
 
 Set up automatic updates using **systemd timer** (recommended) - see [INSTALL.md](INSTALL.md) for details.
 
-The update runs once daily at 02:00 (UK quiet time) using a VPN connection for non-UK servers.
+The update runs 3x daily at 06:00, 14:00, and 22:00 using a VPN connection for non-UK servers.
 
 ## Detailed Installation
 
@@ -91,7 +91,7 @@ fuel/
 │   ├── update.log          # Update logs
 │   └── update_error.log    # Error logs
 ├── not_for_website/        # Server-side scripts (not web accessible)
-│   ├── update_data_safe.php    # Safe update script with zero-downtime swap
+│   ├── update_data_streaming.php # Streaming update script (low memory, no hangs)
 │   ├── schema.sql              # Database schema
 │   └── fuel-update-with-vpn.sh # VPN wrapper script
 ├── scripts/                # PHP backend scripts (web accessible)
@@ -161,7 +161,7 @@ fuel/
 ## Troubleshooting
 
 ### Database not initialized
-Run: `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK servers) or `php /usr/local/bin/update_data_safe.php` (UK servers)
+Run: `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK servers) or `php /usr/local/bin/update_data_streaming.php` (UK servers)
 
 ### Permission errors
 ```bash

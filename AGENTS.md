@@ -64,10 +64,11 @@ fuel/
 ├── Docs/                   # API documentation (gov.uk Fuel Finder)
 ├── not_for_website/        # Deployment scripts and database schema
 │   ├── schema.sql          # SQLite database schema
-│   ├── update_data_safe.php # Zero-downtime update script (CLI only)
-│   ├── fuel-update-with-vpn.sh # VPN wrapper for non-UK servers
+│   ├── update_data_streaming.php # **RECOMMENDED** Streaming update (low memory, no hangs)
+│   ├── DATABASE-UPDATE-OPTIMIZATION.md # Performance optimization guide
+│   ├── fuel-update-with-vpn.sh # VPN wrapper for update script
 │   ├── fuelseeker-vpn-update.service # systemd service file
-│   └── fuelseeker-vpn-update.timer   # systemd timer file (runs once daily at 02:00)
+│   └── fuelseeker-vpn-update.timer   # systemd timer file (runs 3x daily)
 └── errors/                 # Error page templates
 ```
 
@@ -118,7 +119,7 @@ This project has **no build process**. Files are deployed as-is to the web serve
 4. **Run initial data population**:
    ```bash
    # Copy to system location:
-   sudo cp not_for_website/update_data_safe.php /usr/local/bin/
+   sudo cp not_for_website/update_data_streaming.php /usr/local/bin/
    sudo cp not_for_website/fuel-update-with-vpn.sh /usr/local/bin/
    
    # Run update (non-UK servers must use VPN wrapper):
@@ -127,12 +128,21 @@ This project has **no build process**. Files are deployed as-is to the web serve
 
 ### Database Updates
 
-The fuel prices change throughout the day. The database is updated once daily at 02:00 to minimize server impact:
+The fuel prices change throughout the day. With the streaming import method, the database can be updated **3 times daily** without server impact:
 
 ```bash
-# Crontab entry (once daily at 2 AM)
-# Systemd timer runs: /usr/local/bin/fuel-update-with-vpn.sh (non-UK) or /usr/local/bin/update_data_safe.php (UK)
+# Systemd timer runs: /usr/local/bin/fuel-update-with-vpn.sh
+# Default schedule: 06:00, 14:00, 22:00 (every 8 hours)
 ```
+
+**Update Scripts:**
+- **`not_for_website/update_data_streaming.php`** (RECOMMENDED): Streaming CSV import with minimal memory (~10MB) and CPU throttling. No server hangs.
+- **`not_for_website/fuel-update-with-vpn.sh`**: VPN wrapper that handles NordVPN connection, port whitelisting, and IPv6 management automatically.
+
+**Update frequency options:**
+- **3x daily (recommended)**: 06:00, 14:00, 22:00 - Good price accuracy
+- **4x daily**: Every 6 hours - Maximum freshness
+- **Custom**: Edit the systemd timer with `systemctl edit`
 
 **Important:** The gov.uk Fuel Finder API is **UK-only**. Non-UK servers will get HTTP 403.
 Solutions:
@@ -143,9 +153,11 @@ Solutions:
 
 See `INSTALL.md` for detailed VPN setup instructions.
 
+See `not_for_website/DATABASE-UPDATE-OPTIMIZATION.md` for performance details and troubleshooting.
+
 ### Zero-Downtime Updates (Production)
 
-For production deployments, use the safe update script with symlink atomicity:
+The streaming update script uses **atomic symlink swap** for zero-downtime:
 
 ```bash
 # Database file structure
@@ -156,6 +168,17 @@ For production deployments, use the safe update script with symlink atomicity:
 # Each update builds to the INACTIVE file, then atomically swaps the symlink
 # This allows existing PHP connections to finish reading from the old file
 ```
+
+**Streaming Update Benefits:**
+
+| Metric | Value |
+|--------|-------|
+| Method | Streaming CSV + SQLite CLI |
+| Speed | ~25-45s total |
+| Memory | ~10MB (constant) |
+| Server impact | None (no hangs) |
+
+The streaming version writes data directly to CSV during API fetch, avoiding memory exhaustion that can hang small VPS servers. See `not_for_website/DATABASE-UPDATE-OPTIMIZATION.md` for details.
 
 ## Code Style Guidelines
 
@@ -287,13 +310,10 @@ See `not_for_website/schema.sql` for full schema.
    - Should return JSON with station count and last update
    
 4. **Database update**
-   - `sudo systemctl start fuelseeker-vpn-update.service` (test run)
-   - Check `/var/www/fuelseeker.net/data/update.log` for output
-
-4. **Database update**
-   - Run `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_safe.php` (UK)
+   - Run `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_streaming.php` (UK)
    - Check `data/update.log` for success
    - Verify `data/fuel_data.db` exists and is populated
+   - Site should remain accessible during the update (no hangs)
 
 ### No Automated Tests
 
@@ -302,10 +322,23 @@ This project does not have a test suite. Testing is manual.
 ## Common Issues
 
 ### "Database not initialized" Error
-Run: `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_safe.php` (UK)
+Run: `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_streaming.php` (UK)
 
 ### "Failed to get OAuth token" / HTTP 403
 Your server is outside the UK. See "Database Updates" section above for VPN solutions.
+
+### Web Server Hangs During VPN Connection
+If your web server (Caddy/nginx/Apache) appears to hang when the VPN connects:
+
+**Root Cause:** NordVPN adds iptables rules that drop all incoming IPv4 traffic on eth0 except whitelisted ports. By default only SSH (22) is whitelisted.
+
+**Solution:** The `fuel-update-with-vpn.sh` script now automatically whitelists ports 80, 443, and 22 before connecting VPN. If you're using a custom VPN setup, add:
+```bash
+nordvpn whitelist add port 80
+nordvpn whitelist add port 443
+```
+
+**IPv6 Issue:** NordVPN also disables IPv6 routing when connected. The script temporarily disables IPv6 at the kernel level during updates to prevent browsers from hanging while trying IPv6 first. IPv6 is re-enabled after VPN disconnects.
 
 ### Permission Denied
 ```bash

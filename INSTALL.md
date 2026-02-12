@@ -2,13 +2,13 @@
 
 ## Overview
 
-This application uses a local SQLite database to cache fuel station data for fast queries. The database is updated via a **systemd timer** (or cron job on UK servers) that fetches data from the gov.uk Fuel Finder API.
+This application uses a local SQLite database to cache fuel station data for fast queries. The database is updated via a **systemd timer** that fetches data from the gov.uk Fuel Finder API.
 
 ## Initial Setup
 
 ### 1. Install Files
 
-Upload all files to your web server (e.g., `/var/www/fuel/` or `public_html/`).
+Upload all files to your web server (e.g., `/var/www/fuel/` ).
 
 **IMPORTANT: API Credentials**
 This application requires API credentials that are NOT included in the repository for security.
@@ -56,7 +56,7 @@ sudo /usr/local/bin/fuel-update-with-vpn.sh
 
 **UK servers:**
 ```bash
-php /usr/local/bin/update_data_safe.php
+php /usr/local/bin/update_data_streaming.php
 ```
 
 This will:
@@ -112,7 +112,7 @@ https://your-domain.com/
 
 ## Database Update Options
 
-The fuel prices change throughout the day. The database is updated once daily at 02:00 (UK quiet period) to minimize server load. This is sufficient as prices typically don't change rapidly.
+The fuel prices change throughout the day. The database is updated 3x daily at 06:00, 14:00, and 22:00 for better price accuracy.
 
 **⚠️ IMPORTANT**: The gov.uk Fuel Finder API is only accessible from UK IP addresses. If your server is outside the UK (e.g., Germany, US, etc.), the API will block requests with HTTP 403.
 
@@ -123,7 +123,7 @@ If you have a UK-based computer (home/office), run the update locally and copy t
 **On your UK computer:**
 ```bash
 cd /path/to/fuel
-php not_for_website/update_data_safe.php
+php not_for_website/update_data_streaming.php
 ```
 
 **Then copy to your server:**
@@ -175,7 +175,7 @@ nordvpn connect United_Kingdom
 sleep 10
 
 # Run update
-/usr/bin/php /usr/local/bin/update_data_safe.php >> /var/www/fuelseeker.net/data/update.log 2>&1
+/usr/bin/php /usr/local/bin/update_data_streaming.php >> /var/www/fuelseeker.net/data/update.log 2>&1
 
 # Disconnect VPN
 nordvpn disconnect
@@ -202,7 +202,7 @@ If NordVPN supports SOCKS5 proxy, you can configure curl to use it without conne
 
 If you have access to a UK proxy server, you can route API requests through it:
 
-1. Edit `not_for_website/update_data_safe.php` and `scripts/api_proxy.php`
+1. Edit `not_for_website/update_data_streaming.php` and `scripts/api_proxy.php`
 2. Add proxy options to curl calls:
    ```php
    curl_setopt($ch, CURLOPT_PROXY, 'your-uk-proxy.com:8080');
@@ -216,16 +216,16 @@ Run a small, cheap UK-based VPS (DigitalOcean London, AWS London, etc.) solely f
 **On UK VPS (systemd timer or cron):**
 ```bash
 # Using systemd timer (recommended):
-# Copy update_data_safe.php to /usr/local/bin/ and use systemd service
+# Copy update_data_streaming.php to /usr/local/bin/ and use systemd service
 
 # Or using cron (UK servers only):
-0 2 * * * /usr/bin/php /usr/local/bin/update_data_safe.php && scp /var/www/fuelseeker.net/data/fuel_data.db.v1 main-server:/var/www/fuelseeker.net/data/
+0 2 * * * /usr/bin/php /usr/local/bin/update_data_streaming.php && scp /var/www/fuelseeker.net/data/fuel_data.db.v1 main-server:/var/www/fuelseeker.net/data/
 # Then activate on main server via symlink swap
 ```
 
 ---
 
-## Setting Up Automatic Updates (Cron Job)
+## Setting Up Automatic Updates
 
 ### Using Crontab
 
@@ -237,9 +237,9 @@ crontab -e
 
 **⚠️ For non-UK servers: Do NOT use cron.** Use the systemd timer method below which handles VPN connection automatically.
 
-**Only for UK servers** (no VPN needed):
+**For UK servers** (no VPN needed):
 ```
-0 2 * * * /usr/bin/php /usr/local/bin/update_data_safe.php >> /var/www/fuelseeker.net/data/update.log 2>&1
+0 6,14,22 * * * /usr/bin/php /usr/local/bin/update_data_streaming.php >> /var/www/fuelseeker.net/data/update.log 2>&1
 ```
 
 ### Option 2: Using Systemd Timer (Linux VPS - Non-UK Servers) - Daily at 02:00
@@ -250,35 +250,35 @@ For servers outside the UK, use a systemd service with the VPN wrapper script an
 
 **1. Install the safe update script** (`/usr/local/bin/update_data.php`):
 
-This is the database update script with automatic backup and restore:
+This is the streaming database update script with low memory usage:
 
 ```bash
 # Copy the safe update script to your server
-scp not_for_website/update_data_safe.php user@fuelseeker.net:/tmp/
-ssh user@fuelseeker.net "sudo mv /tmp/update_data_safe.php /usr/local/bin/update_data_safe.php"
+scp not_for_website/update_data_streaming.php user@fuelseeker.net:/tmp/
+ssh user@fuelseeker.net "sudo mv /tmp/update_data_streaming.php /usr/local/bin/update_data_streaming.php"
 ```
 
-**Features of the safe update script:**
-- Creates a backup before any changes
-- Downloads all data BEFORE touching the database
-- Automatic rollback if update fails
-- Restores backup on any error
-- Your site stays online even if update fails
+**Features of the streaming update script:**
+- Streams data directly to CSV (low memory ~10MB)
+- Builds database using SQLite CLI
+- Atomic symlink swap for zero downtime
+- Automatic retry on API timeouts
+- Site stays accessible during updates
 
 **2. Create the wrapper script** (`/usr/local/bin/fuel-update-with-vpn.sh`):
 
 ```bash
 #!/bin/bash
-# Update fuel database with UK VPN connection (Safe Version)
+# Update fuel database with UK VPN connection
 
 LOG_FILE="/var/www/fuelseeker.net/data/update.log"
-UPDATE_SCRIPT="/usr/local/bin/update_data_safe.php"
+UPDATE_SCRIPT="/usr/local/bin/update_data_streaming.php"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-log "=== Starting Fuel Update (Safe Mode) ==="
+log "=== Starting Fuel Update ==="
 
 # Check if update script exists
 if [ ! -f "$UPDATE_SCRIPT" ]; then
@@ -286,7 +286,7 @@ if [ ! -f "$UPDATE_SCRIPT" ]; then
     exit 1
 fi
 
-# Important: Do NOT run update_data_safe.php directly on non-UK servers
+# Important: Do NOT run update_data_streaming.php directly on non-UK servers
 # This script (fuel-update-with-vpn.sh) handles the VPN connection first
 
 # Remove stale lock file if it exists
@@ -334,8 +334,8 @@ if [ "$VPN_NEEDED" = true ]; then
     log "VPN connected successfully"
 fi
 
-# Run the update (safe version with backup)
-log "Running fuel data update (safe mode)..."
+# Run the update
+log "Running fuel data update..."
 UPDATE_OUTPUT=$(php "$UPDATE_SCRIPT" 2>&1)
 UPDATE_STATUS=$?
 
@@ -347,7 +347,7 @@ if [ $UPDATE_STATUS -eq 0 ]; then
     log "Update completed successfully"
 else
     log "ERROR: Update failed with status $UPDATE_STATUS"
-    log "Database backup was restored automatically if needed"
+    log "Check update_error.log for details"
 fi
 
 # Disconnect VPN if we connected
@@ -490,12 +490,12 @@ sudo systemctl list-timers --all
 2. Go to **Cron Jobs**
 3. Under **Add New Cron Job**, set:
    - **Common Settings**: Select "Once a day" OR enter custom: `0 2 * * *`
-   - **Command**: `/usr/bin/php /home/username/public_html/fuel/not_for_website/update_data_safe.php >> /home/username/public_html/fuel/data/update.log 2>&1`
+   - **Command**: `/usr/bin/php /home/username/public_html/fuel/not_for_website/update_data_streaming.php >> /home/username/public_html/fuel/data/update.log 2>&1`
 4. Click **Add New Cron Job**
 
 **For non-UK shared hosting:** Use Option 1 (copy from a UK computer) instead.
 
-## How the Safe Update Works
+## How the Update Works
 
 The VPN update script uses a **symlink-based atomic swap** system to minimize downtime:
 

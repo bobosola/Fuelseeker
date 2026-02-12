@@ -1,12 +1,15 @@
 [Unit]
-Description=Run FuelSeeker update daily at 02:00
+Description=Run FuelSeeker update 3 times daily
 
 [Timer]
-# Run at 2:00 AM every day (low traffic time)
-OnCalendar=*-*-* 02:00:00
+# Run at 06:00, 14:00, and 22:00 (every 8 hours)
+# Times chosen to catch morning, afternoon, and evening price changes
+OnCalendar=*-*-* 06:00:00
+OnCalendar=*-*-* 14:00:00
+OnCalendar=*-*-* 22:00:00
 
-# Add a random delay up to 10 minutes to avoid server overload
-RandomizedDelaySec=10m
+# Add a random delay up to 5 minutes to avoid server overload
+RandomizedDelaySec=5m
 
 # Ensure it runs if system was off at scheduled time
 Persistent=true

@@ -1,41 +1,36 @@
 # Systemd Installation Instructions
 
-These instructions deploy the systemd timer for FuelSeeker updates (runs once daily at 02:00).
+These instructions deploy the systemd timer for FuelSeeker updates (runs 3x daily at 06:00, 14:00, 22:00).
 
-## Files Created
+## Files
 
-1. `fuel-update-with-vpn.sh` - Updated VPN wrapper script (cleaner exit handling)
-2. `update_data_safe.php` - Updated with WAL mode PRAGMAs
-3. `fuelseeker-vpn-update.service` - Systemd service with resource limits
-4. `fuelseeker-vpn-update.timer` - Systemd timer (runs once daily at 02:00)
+1. `fuel-update-with-vpn.sh` - VPN wrapper script (handles NordVPN connection, port whitelisting, IPv6)
+2. `update_data_streaming.php` - Streaming database update script (low memory, no hangs)
+3. `fuelseeker-vpn-update.service` - Systemd service definition
+4. `fuelseeker-vpn-update.timer` - Systemd timer (runs 3x daily)
 
-## Deployment Steps (Run on osola.org.uk)
+## Deployment Steps
 
 ```bash
-# 1. SSH to the server
-ssh osola.org.uk
+# 1. Copy scripts to system location
+sudo cp not_for_website/update_data_streaming.php /usr/local/bin/
+sudo cp not_for_website/fuel-update-with-vpn.sh /usr/local/bin/
+sudo chmod +x /usr/local/bin/fuel-update-with-vpn.sh
 
-# 2. Copy systemd files to system location
-sudo cp /var/www/fuelseeker.net/not_for_website/fuelseeker-vpn-update.service /etc/systemd/system/
-sudo cp /var/www/fuelseeker.net/not_for_website/fuelseeker-vpn-update.timer /etc/systemd/system/
+# 2. Copy systemd files
+sudo cp not_for_website/fuelseeker-vpn-update.service /etc/systemd/system/
+sudo cp not_for_website/fuelseeker-vpn-update.timer /etc/systemd/system/
 
-# 3. Ensure the VPN script is executable
-sudo chmod +x /var/www/fuelseeker.net/not_for_website/fuel-update-with-vpn.sh
-
-# 4. Create data directory if needed
-sudo mkdir -p /var/www/fuelseeker.net/data
+# 3. Create data directory if needed
+sudo mkdir -p /var/www/fuelseeker.net/data/tmp
 sudo chown -R www-data:www-data /var/www/fuelseeker.net/data
 
-# 5. Stop any existing cron job (if using cron)
-sudo crontab -e
-# Remove or comment out the existing fuel update cron line
-
-# 6. Reload systemd and enable timer
+# 4. Reload systemd and enable timer
 sudo systemctl daemon-reload
 sudo systemctl enable fuelseeker-vpn-update.timer
 sudo systemctl start fuelseeker-vpn-update.timer
 
-# 7. Verify timer is active
+# 5. Verify timer is active
 sudo systemctl list-timers fuelseeker-vpn-update.timer
 sudo systemctl status fuelseeker-vpn-update.timer
 ```
@@ -61,22 +56,14 @@ tail -f /var/www/fuelseeker.net/data/update_error.log
 
 ```bash
 # Run update manually
+sudo /usr/local/bin/fuel-update-with-vpn.sh
+
+# Or via systemd
 sudo systemctl start fuelseeker-vpn-update.service
 
 # Watch the logs
 tail -f /var/www/fuelseeker.net/data/update.log
 ```
-
-## Resource Limits Applied
-
-| Limit | Value | Purpose |
-|-------|-------|---------|
-| CPUQuota | 25% | Prevents CPU starvation |
-| MemoryMax | 512M | Hard memory cap |
-| MemorySwapMax | 0 | Prevents swap thrashing |
-| IOWeight | 10 | Low disk priority |
-| Nice | 10 | Lower CPU scheduling priority |
-| IOSchedulingClass | idle | Idle I/O class |
 
 ## Rollback (if needed)
 
@@ -84,8 +71,4 @@ tail -f /var/www/fuelseeker.net/data/update.log
 # Stop and disable timer
 sudo systemctl stop fuelseeker-vpn-update.timer
 sudo systemctl disable fuelseeker-vpn-update.timer
-
-# Restore cron if desired
-sudo crontab -e
-# Add back: 0 2 * * * /var/www/fuelseeker.net/not_for_website/fuel-update-with-vpn.sh
 ```
