@@ -92,8 +92,11 @@ fuel/
 │   └── update_error.log    # Error logs
 ├── not_for_website/        # Server-side scripts (not web accessible)
 │   ├── update_data_streaming.php # Streaming update script (low memory, no hangs)
+│   ├── fuel-update-with-vpn.sh   # VPN wrapper script
+│   ├── fuelseeker-vpn-update.timer   # systemd timer (3x daily)
+│   ├── fuelseeker-vpn-update.service # systemd service
 │   ├── schema.sql              # Database schema
-│   └── fuel-update-with-vpn.sh # VPN wrapper script
+│   └── DATABASE-UPDATE-OPTIMIZATION.md # Performance guide
 ├── scripts/                # PHP backend scripts (web accessible)
 │   ├── api_proxy.php       # Fuel Finder API proxy
 │   ├── config.php          # Configuration loader
@@ -134,8 +137,11 @@ fuel/
 
 ### Local API (`scripts/local_api.php`)
 
-- `?action=status` - Database status
-- `?action=nearby&lat=xx&lng=yy&radius=10` - Stations near location
+| Endpoint | Description | Example |
+|----------|-------------|---------|
+| `?action=status` | Database status | `curl https://fuelseeker.net/scripts/local_api.php?action=status` |
+| `?action=search&q=QUERY` | Search by postcode/town | `curl "https://fuelseeker.net/scripts/local_api.php?action=search&q=SO31&limit=5"` |
+| `?action=nearby&lat=XX&lng=YY` | Stations near location | `curl "https://fuelseeker.net/scripts/local_api.php?action=nearby&lat=51.5&lng=-0.1&radius=5"` |
 
 ### Example Response
 
@@ -171,7 +177,7 @@ chmod 666 data/fuel_data.db
 
 ### Check database status
 ```bash
-curl https://your-domain.com/scripts/local_api.php?action=status
+curl https://fuelseeker.net/scripts/local_api.php?action=status
 ```
 
 ## License
