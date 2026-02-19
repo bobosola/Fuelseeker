@@ -465,7 +465,7 @@ async function selectLocation(location) {
 function updateLocationTitle(title) {
     const element = document.getElementById('locationTitle');
     if (element) {
-        element.textContent = `Fuel stations near ${title} - click the icons for more details:`;
+        element.textContent = `Fuel stations near ${title} - click the icons for details and a Google Maps link:`;
     }
 }
 
