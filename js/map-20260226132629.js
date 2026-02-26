@@ -293,6 +293,7 @@ function displayTable() {
             });
             if (marker) {
                 marker.openPopup();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
         
