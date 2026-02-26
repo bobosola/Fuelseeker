@@ -116,7 +116,7 @@ async function loadLastUpdated() {
             const year = date.toLocaleString('en-GB', { year: '2-digit' });
             const time = date.toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit' });
             const formatted = `${day}-${month}-${year}, ${time}`;
-            lastUpdatedEl.textContent = `Data from ${data.stations_with_prices.toLocaleString()} fuel stations. Updated: ${formatted}`;
+            lastUpdatedEl.textContent = `Data: ${data.stations_with_prices.toLocaleString()} fuel stations at ${formatted}`;
         } else {
             lastUpdatedEl.textContent = '';
         }
