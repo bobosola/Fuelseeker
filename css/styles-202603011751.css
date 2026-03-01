@@ -585,6 +585,12 @@ main {
     color: var(--primary-color);
 }
 
+.price-cell.no-price,
+.no-price {
+    color: var(--text-light);
+    font-style: italic;
+}
+
 .postcode-link {
     color: var(--secondary-color);
     text-decoration: none;

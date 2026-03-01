@@ -28,12 +28,12 @@ function toRadians(degrees) {
  */
 export function formatPrice(price) {
     if (price === null || price === undefined || price === '') {
-        return '-';
+        return 'Not reported';
     }
     
     const numPrice = parseFloat(price);
     if (isNaN(numPrice)) {
-        return '-';
+        return 'Not reported';
     }
     
     return numPrice.toFixed(1);

@@ -15,96 +15,115 @@ example:
 [
   {
     "node_id": "0028acef5f3afc41c7e7d56fb285a940dfb64d6fea01cb4accd79c148321112d",
-    "mft_organisation_name": "789 LTD",
     "public_phone_number": null,
-    "trading_name": "FORECOURT 4",
+    "trading_name": "Alex Fuel Station",
     "fuel_prices": [
       {
-        "price": null,
-        "fuel_type": "B10",
-        "price_last_updated": null
-      },
-      {
-        "price": null,
-        "fuel_type": "B7_PREMIUM",
-        "price_last_updated": null
-      },
-      {
-        "price": null,
         "fuel_type": "E5",
-        "price_last_updated": null
+        "price": 159.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       },
       {
-        "price": null,
-        "fuel_type": "HVO",
-        "price_last_updated": null
-      },
-      {
-        "price": "0120.0000",
         "fuel_type": "E10",
-        "price_last_updated": "2025-12-31T08:15:23"
+        "price": 132.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       },
       {
-        "price": "0235.9000",
         "fuel_type": "B7_STANDARD",
-        "price_last_updated": "2025-12-31T13:16:29"
+        "price": 141.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       }
     ]
   },
   {
     "node_id": "01da92125c3751767044d06b202f45da5933f0e16e256fa3e98a16af8386308d",
-    "mft_organisation_name": "VE3",
     "public_phone_number": "",
-    "trading_name": "KHJH",
+    "trading_name": "Star Garage",
     "fuel_prices": [
       {
-        "price": null,
-        "fuel_type": "E10",
-        "price_last_updated": null
+        "fuel_type": "E5",
+        "price": 159.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       }
     ]
   },
   {
     "node_id": "020592cd81196efdb61ab2135f837ddf3d2bee4e64346810270f0b088b4c09d8",
-    "mft_organisation_name": "FUEL TEST",
     "public_phone_number": null,
-    "trading_name": "Test 12",
+    "trading_name": "Blue Hills Fuel Station",
     "fuel_prices": [
       {
-        "price": null,
+        "fuel_type": "E5",
+        "price": 159.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
+      },
+      {
         "fuel_type": "B7_STANDARD",
-        "price_last_updated": null
-      },
-      {
-        "price": "0140.0000",
-        "fuel_type": "HVO",
-        "price_last_updated": "2026-01-13T09:27:32"
-      },
-      {
-        "price": "0183.0000",
-        "fuel_type": "E10",
-        "price_last_updated": "2026-01-12T08:15:21"
-      },
-      {
-        "price": "0333.4000",
-        "fuel_type": "B10",
-        "price_last_updated": "2026-01-13T09:26:40"
+        "price": 141.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       }
     ]
   }
 ]
 
-RESPONSE SCHEMA: application/json 401 Unauthorized
+RESPONSE SCHEMA: application/json 400 Bad Request
+Example:
+
 {
-  "error": "Unauthorized",
-  "message": "Invalid API key or missing authentication header."
+  "success": false,
+  "data": {
+    "success": false,
+    "data": {
+      "success": false,
+      "message": "Missing required query parameter 'batch-number'"
+    },
+    "message": "An error occurred",
+    "error": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  },
+  "message": {
+    "code": 400,
+    "details": "Error in API call"
+  },
+  "error": {
+    "code": 400,
+    "details": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  }
 }
 
-RESPONSE SCHEMA: application/json 500 Internal server error
+RESPONSE SCHEMA: application/json 403 Forbidden
+Example:
+
 {
-"success": false,
-"statusCode": 500,
-"error": "Something went wrong"
+  "success": false,
+  "data": {
+    "error": "Unauthorized",
+    "message": "Invalid or expired token"
+  },
+  "message": "Unauthorized",
+  "error": {
+    "code": 403,
+    "details": "Unauthorized"
+  }
+}
+
+RESPONSE SCHEMA: application/json 500 Server error
+Example:
+
+{
+  "success": false,
+  "error": "Internal Server Error"
 }
 
 
@@ -116,75 +135,128 @@ URL GET: https://www.fuel-finder.service.gov.uk/api/v1/pfs/fuel-prices?batch-num
 
 RESPONSE SCHEMA: application/json 200 success
 example:
+
 [
   {
     "node_id": "0028acef5f3afc41c7e7d56fb285a940dfb64d6fea01cb4accd79c148321112d",
-    "mft_organisation_name": "789 LTD",
     "public_phone_number": null,
     "trading_name": "FORECOURT 4",
     "fuel_prices": [
       {
-        "price": "0120.0000",
-        "fuel_type": "E10",
-        "price_last_updated": "2025-12-31T08:15:23"
+        "fuel_type": "E5",
+        "price": 159.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       },
       {
-        "price": "0235.9000",
+        "fuel_type": "E10",
+        "price": 132.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
+      },
+      {
         "fuel_type": "B7_STANDARD",
-        "price_last_updated": "2025-12-31T13:16:29"
+        "price": 141.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       }
     ]
   },
   {
     "node_id": "020592cd81196efdb61ab2135f837ddf3d2bee4e64346810270f0b088b4c09d8",
-    "mft_organisation_name": "FUEL TEST",
     "public_phone_number": null,
     "trading_name": "Test 12",
     "fuel_prices": [
       {
-        "price": "0140.0000",
-        "fuel_type": "HVO",
-        "price_last_updated": "2026-01-13T09:27:32"
+        "fuel_type": "E5",
+        "price": 159.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       },
       {
-        "price": "0183.0000",
-        "fuel_type": "E10",
-        "price_last_updated": "2026-01-12T08:15:21"
-      },
-      {
-        "price": "0333.4000",
-        "fuel_type": "B10",
-        "price_last_updated": "2026-01-13T09:26:40"
+        "fuel_type": "B7_STANDARD",
+        "price": 141.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       }
     ]
   },
   {
     "node_id": "04b39ce398e156be65e96e164024bd17e208b263628612f76293121748b151c6",
-    "mft_organisation_name": "Sun Farm 7",
     "public_phone_number": "+442079460958",
     "trading_name": "Shell Petrol Station - Updated",
     "fuel_prices": [
       {
-        "price": "0147.5500",
         "fuel_type": "E5",
-        "price_last_updated": "2026-01-06T17:50:50"
+        "price": 159.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
+      },
+      {
+        "fuel_type": "E10",
+        "price": 132.9,
+        "price_last_updated": "2026-02-17T16:03:04.938Z",
+        "price_change_effective_timestamp": "2026-02-17T16:00:00.000Z"
       }
     ]
   }
 ]
 
-RESPONSE SCHEMA: application/json 401 Unauthorized
-{
-  "error": "Unauthorized",
-  "message": "Invalid API key or missing authentication header."
-}
+RESPONSE SCHEMA: application/json 400 Bad Request
+Example:
 
-RESPONSE SCHEMA: application/json 500 Internal server error
 {
   "success": false,
-  "statusCode": 500,
-  "error": "Something went wrong"
+  "data": {
+    "success": false,
+    "data": {
+      "success": false,
+      "message": "'effective-start-timestamp' is not a valid date"
+    },
+    "message": "An error occurred",
+    "error": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  },
+  "message": {
+    "code": 400,
+    "details": "Error in API call"
+  },
+  "error": {
+    "code": 400,
+    "details": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  }
 }
+
+RESPONSE SCHEMA: application/json 403 Forbidden
+Example:
+
+{
+  "success": false,
+  "data": {
+    "error": "Unauthorized",
+    "message": "Invalid or expired token"
+  },
+  "message": "Unauthorized",
+  "error": {
+    "code": 403,
+    "details": "Unauthorized"
+  }
+}
+
+RESPONSE SCHEMA: application/json 500 Server error
+Example:
+
+{
+  "success": false,
+  "error": "Internal Server Error"
+}
+
+
 
 
 ## Fetch PFS information
@@ -195,10 +267,10 @@ URL GET: https://www.fuel-finder.service.gov.uk/api/v1/pfs?batch-number=1
 
 RESPONSE SCHEMA: application/json 200 success
 example:
+
 [
   {
     "node_id": "9b275ab576eeba3c6677984be15ee22a74e54fdfe8e5ea700e84a03178dc4ac1",
-    "mft_organisation_name": "USERM123",
     "public_phone_number": null,
     "trading_name": "TEST",
     "is_same_trading_and_brand_name": true,
@@ -215,8 +287,8 @@ example:
       "country": "England",
       "county": null,
       "postcode": "SL6 0AA",
-      "latitude": "51.5268585",
-      "longitude": "-0.7003610"
+      "latitude": 51.5268585,
+      "longitude": -0.700361
     },
     "amenities": [
       "water_filling"
@@ -275,7 +347,6 @@ example:
   },
   {
     "node_id": "4fd9a4c6b48358b9b5c95989fba100fdcbb87c9e909ed4ce1ad96f64ffb8b56a",
-    "mft_organisation_name": "Test 78",
     "public_phone_number": "+44 7723608248",
     "trading_name": "TEST FORECOURT 1",
     "is_same_trading_and_brand_name": true,
@@ -292,8 +363,8 @@ example:
       "country": "ENGLAND",
       "county": "EAST YORKSHIRE",
       "postcode": "HU15 2RD",
-      "latitude": "51.2585030",
-      "longitude": "-3.4175670"
+      "latitude": 51.258503,
+      "longitude": -3.417567
     },
     "amenities": [
       "adblue_packaged",
@@ -352,7 +423,6 @@ example:
   },
   {
     "node_id": "91bdda1c07fa05110a31639cc66932f9ed8bd388d4f6be542a423365bcfd53e1",
-    "mft_organisation_name": "YHJ PROPERTIES LIMITED",
     "public_phone_number": "+442071930000",
     "trading_name": "SUPERFUEL LOUGHBOROUGH 12",
     "is_same_trading_and_brand_name": true,
@@ -369,8 +439,8 @@ example:
       "country": "ENGLAND",
       "county": "LEICESTERSHIRE",
       "postcode": "LE11 9AA",
-      "latitude": "50.5033430",
-      "longitude": "2.1244400"
+      "latitude": 50.503343,
+      "longitude": -2.12444
     },
     "amenities": [
       "adblue_packaged",
@@ -434,17 +504,58 @@ example:
   }
 ]
 
-RESPONSE SCHEMA: application/json 401 Unauthorized
-{
-  "error": "Unauthorized",
-  "message": "Invalid API key or missing authentication header."
-}
+RESPONSE SCHEMA: application/json 400 Bad Request
+Example:
 
-RESPONSE SCHEMA: application/json 500 Internal server error
 {
   "success": false,
-  "statusCode": 500,
-  "error": "Something went wrong"
+  "data": {
+    "success": false,
+    "data": {
+      "success": false,
+      "message": "Missing required query parameter 'batch-number'"
+    },
+    "message": "An error occurred",
+    "error": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  },
+  "message": {
+    "code": 400,
+    "details": "Error in API call"
+  },
+  "error": {
+    "code": 400,
+    "details": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  }
+}
+
+RESPONSE SCHEMA: application/json 403 Forbidden
+Example:
+
+{
+  "success": false,
+  "data": {
+    "error": "Unauthorized",
+    "message": "Invalid or expired token"
+  },
+  "message": "Unauthorized",
+  "error": {
+    "code": 403,
+    "details": "Unauthorized"
+  }
+}
+
+RESPONSE SCHEMA: application/json 500 Server error
+Example:
+
+{
+  "success": false,
+  "error": "Internal Server Error"
 }
 
 ## Fetch incremental PFS information
@@ -459,7 +570,6 @@ example:
 [
   {
     "node_id": "9b275ab576eeba3c6677984be15ee22a74e54fdfe8e5ea700e84a03178dc4ac1",
-    "mft_organisation_name": "USERM123",
     "public_phone_number": null,
     "trading_name": "TEST",
     "is_same_trading_and_brand_name": true,
@@ -476,8 +586,8 @@ example:
       "country": "England",
       "county": null,
       "postcode": "SL6 0AA",
-      "latitude": "51.5268585",
-      "longitude": "-0.7003610"
+      "latitude": 51.5268585,
+      "longitude": -0.700361
     },
     "amenities": [
       "water_filling"
@@ -533,7 +643,6 @@ example:
   },
   {
     "node_id": "d596bd700d04e36f346661db721b7648617f120aa88a2b47fe0aed617e8533c0",
-    "mft_organisation_name": "ICON LTD",
     "public_phone_number": null,
     "trading_name": "Yono",
     "is_same_trading_and_brand_name": true,
@@ -550,8 +659,8 @@ example:
       "country": "England",
       "county": null,
       "postcode": "EC2A 4NE",
-      "latitude": "51.5256151",
-      "longitude": "-0.0836283"
+      "latitude": 51.5256151,
+      "longitude": -0.0836283
     },
     "amenities": [
       "adblue_packaged",
@@ -608,7 +717,6 @@ example:
   },
   {
     "node_id": "126e885886a4324153aa53b714542d22b71fab0b76f843d97c58f1b1174fb152",
-    "mft_organisation_name": "Sparta",
     "public_phone_number": null,
     "trading_name": "csvprice",
     "is_same_trading_and_brand_name": true,
@@ -625,8 +733,8 @@ example:
       "country": "England",
       "county": null,
       "postcode": "EC2A 4NE",
-      "latitude": "51.5254010",
-      "longitude": "-0.0837382"
+      "latitude": 51.525401,
+      "longitude": -0.0837382
     },
     "amenities": [],
     "opening_times": {
@@ -683,16 +791,58 @@ example:
   }
 ]
 
-RESPONSE SCHEMA: application/json 401 Unauthorized
-{
-  "error": "Unauthorized",
-  "message": "Invalid API key or missing authentication header."
-}
 
-RESPONSE SCHEMA: application/json 500 Internal server error
+
+RESPONSE SCHEMA: application/json 400 Bad Request
+Example:
+
 {
   "success": false,
-  "statusCode": 500,
-  "error": "Something went wrong"
+  "data": {
+    "success": false,
+    "data": {
+      "success": false,
+      "message": "'effective-start-timestamp' is not a valid date"
+    },
+    "message": "An error occurred",
+    "error": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  },
+  "message": {
+    "code": 400,
+    "details": "Error in API call"
+  },
+  "error": {
+    "code": 400,
+    "details": {
+      "code": 400,
+      "details": "Error in API call"
+    }
+  }
 }
 
+RESPONSE SCHEMA: application/json 403 Forbidden
+Example:
+
+{
+  "success": false,
+  "data": {
+    "error": "Unauthorized",
+    "message": "Invalid or expired token"
+  },
+  "message": "Unauthorized",
+  "error": {
+    "code": 403,
+    "details": "Unauthorized"
+  }
+}
+
+RESPONSE SCHEMA: application/json 500 Server error
+Example:
+
+{
+  "success": false,
+  "error": "Internal Server Error"
+}

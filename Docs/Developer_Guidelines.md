@@ -182,6 +182,56 @@ Use API data appropriately:
 * Respect intellectual property rights
 * Don't use data for illegal or harmful purposes
 
+## Frontend Asset Management
+
+### Cache Busting with Timestamps
+
+This project uses **timestamp-based versioning** for CSS and JavaScript files to ensure users always receive the latest versions after updates.
+
+#### File Naming Format
+```
+filename-YYYYMMDDHHMM.ext
+```
+
+Examples:
+- `styles-202603011751.css` (updated March 1, 2026 at 17:51)
+- `utils-202603011751.js`
+- `map-202603011751.js`
+
+#### When Modifying Assets
+
+**After any CSS or JS change:**
+
+1. Generate a new timestamp: `date +%Y%m%d%H%M`
+2. Rename the modified file with the new timestamp
+3. Update ALL references in HTML files and JS imports
+4. Delete or keep old versions (old files can be removed after deployment)
+
+**Example workflow:**
+```bash
+# 1. Make your changes to js/utils-20260206143452.js
+
+# 2. Generate new timestamp
+NEW_TS=$(date +%Y%m%d%H%M)  # e.g., 202603011751
+
+# 3. Rename the file
+mv js/utils-20260206143452.js js/utils-${NEW_TS}.js
+
+# 4. Update all references
+sed -i "s/utils-20260206143452/utils-${NEW_TS}/g" js/map-*.js js/index-*.js
+
+# 5. Verify
+grep -r "20260206143452" --include="*.js" --include="*.html" .
+# Should return no results
+```
+
+#### Why Not Query Strings?
+
+Some developers use `file.css?v=123` for cache busting. We avoid this because:
+- **CDN compatibility**: Some CDNs ignore query strings for caching
+- **Cleaner URLs**: Timestamp in filename is more explicit
+- **Version tracking**: Easy to see when a file was last modified
+
 ## Need help?
 
 If you have any issues about using Fuel Finder, [contact the team](support.md)

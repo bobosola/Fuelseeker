@@ -13,10 +13,77 @@ if (php_sapi_name() !== 'cli') {
     exit(1);
 }
 
-// Updated paths based on user's setup
-$scriptDir = '/var/www/fuelseeker.net/scripts';
-$dataDir = '/var/www/fuelseeker.net/data';
+// ============================================================================
+// Path Configuration - Auto-detection with Environment Variable Override
+// ============================================================================
+// Priority:
+// 1. Environment variables (FUELSEEKER_SCRIPT_DIR, FUELSEEKER_DATA_DIR)
+// 2. Auto-detect based on script location (__DIR__)
+// 3. Default hardcoded paths
+//
+// Usage examples:
+//   # Live server (uses paths relative to this script's location)
+//   php update_data_streaming.php
+//
+//   # Local development with custom paths
+//   FUELSEEKER_SCRIPT_DIR=/custom/scripts FUELSEEKER_DATA_DIR=/custom/data php update_data_streaming.php
+// ============================================================================
+
+function detectPaths() {
+    // 1. Check environment variables first (highest priority)
+    $envScriptDir = getenv('FUELSEEKER_SCRIPT_DIR');
+    $envDataDir = getenv('FUELSEEKER_DATA_DIR');
+    
+    if ($envScriptDir && $envDataDir) {
+        return [
+            'scriptDir' => rtrim($envScriptDir, '/'),
+            'dataDir' => rtrim($envDataDir, '/')
+        ];
+    }
+    
+    // 2. Auto-detect based on this script's location
+    // This script is in: /path/to/project/not_for_website/
+    // We need to go up one level to find scripts/ and data/
+    $thisDir = __DIR__;
+    $baseDir = dirname($thisDir); // Parent of not_for_website/
+    
+    $autoScriptDir = $baseDir . '/scripts';
+    $autoDataDir = $baseDir . '/data';
+    
+    // Verify the auto-detected paths exist
+    if (is_dir($autoScriptDir) && is_dir($autoDataDir)) {
+        return [
+            'scriptDir' => $autoScriptDir,
+            'dataDir' => $autoDataDir
+        ];
+    }
+    
+    // 3. Fallback to hardcoded paths (for backward compatibility)
+    // Local development paths
+    return [
+        'scriptDir' => '/Users/bobosola/Sites/fuelseeker.net/scripts',
+        'dataDir' => '/Users/bobosola/Sites/fuelseeker.net/data'
+    ];
+}
+
+$paths = detectPaths();
+$scriptDir = $paths['scriptDir'];
+$dataDir = $paths['dataDir'];
 $tempDir = $dataDir . '/tmp';
+
+// Log which paths are being used
+$isEnv = getenv('FUELSEEKER_SCRIPT_DIR') && getenv('FUELSEEKER_DATA_DIR');
+$isAuto = strpos($scriptDir, '/not_for_website') === false && $scriptDir === dirname(__DIR__) . '/scripts';
+
+if ($isEnv) {
+    echo "[INFO] Using environment variable paths\n";
+} elseif ($isAuto) {
+    echo "[INFO] Using auto-detected paths from script location\n";
+} else {
+    echo "[INFO] Using fallback default paths\n";
+}
+echo "[INFO] Script directory: $scriptDir\n";
+echo "[INFO] Data directory: $dataDir\n\n";
 
 require_once $scriptDir . '/config.php';
 
@@ -262,7 +329,7 @@ function streamStationsToCsv($token, $fileHandle) {
                 
                 $row = [
                     $station['node_id'] ?? '',
-                    $station['mft_organisation_name'] ?? '',
+                    '', // mft_organisation_name - no longer in API, kept for schema compatibility
                     $station['public_phone_number'] ?? '',
                     $station['trading_name'] ?? '',
                     $station['brand_name'] ?? '',
@@ -284,7 +351,7 @@ function streamStationsToCsv($token, $fileHandle) {
                     date('Y-m-d H:i:s')
                 ];
                 
-                fputcsv($fileHandle, $row);
+                fputcsv($fileHandle, $row, ',', '"', '');
                 $totalCount++;
             }
             
@@ -388,7 +455,7 @@ function streamPricesToCsv($token, $fileHandle) {
                     date('Y-m-d H:i:s')
                 ];
                 
-                fputcsv($fileHandle, $row);
+                fputcsv($fileHandle, $row, ',', '"', '');
                 $totalCount++;
             }
             
@@ -414,7 +481,7 @@ function streamPricesToCsv($token, $fileHandle) {
  * Build database using SQLite CLI
  */
 function buildDatabaseWithCli($dbPath, $stationsCsv, $pricesCsv) {
-    $schema = file_get_contents('/home/bobosola/schema.sql');
+    $schema = file_get_contents(__DIR__ . '/schema.sql');
     
     $sqlFile = dirname($stationsCsv) . '/import.sql';
     $sql = <<<SQL

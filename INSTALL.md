@@ -703,8 +703,38 @@ For issues with:
 
 **Last Updated**: February 2026
 
+## Path Configuration for Update Script
+
+The `update_data_streaming.php` script automatically detects the correct paths for your installation:
+
+### Auto-Detection (Default)
+
+The script uses `__DIR__` to auto-detect paths relative to its location:
+- Script location: `not_for_website/update_data_streaming.php`
+- Detected base directory: Parent of `not_for_website/`
+- Looks for `scripts/` and `data/` subdirectories
+
+**No configuration needed** - the script works out of the box on both local and live servers.
+
+### Environment Variables (Optional Override)
+
+For custom installations or testing different paths, use environment variables:
+
+```bash
+# Custom paths
+FUELSEEKER_SCRIPT_DIR=/custom/scripts FUELSEEKER_DATA_DIR=/custom/data php update_data_streaming.php
+
+# Live server testing from local machine
+FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data php not_for_website/update_data_streaming.php
+```
+
+The script will output which path detection method it's using when run.
+
+---
+
 ## Changelog
 
+- **Mar 2026**: Added smart path detection to update_data_streaming.php
 - **Feb 2026**: Added geolocation workaround documentation for non-UK servers
 - **Feb 2026**: Updated config.php to support .env file in scripts/ directory
 - **Feb 2026**: Fixed domain whitelisting for os_token.php and token.php

@@ -180,6 +180,93 @@ The streaming update script uses **atomic symlink swap** for zero-downtime:
 
 The streaming version writes data directly to CSV during API fetch, avoiding memory exhaustion that can hang small VPS servers. See `not_for_website/DATABASE-UPDATE-OPTIMIZATION.md` for details.
 
+### Cache Busting (File Versioning)
+
+To ensure users always get the latest CSS and JavaScript files after updates, this project uses **timestamp-based cache busting**:
+
+#### File Naming Convention
+
+All CSS and JS files include a timestamp in their filename:
+```
+css/styles-202603011751.css       # Format: YYYYMMDDHHMM
+js/utils-202603011751.js
+js/map-202603011751.js
+js/index-202603011751.js
+```
+
+#### When to Update Timestamps
+
+**Update timestamps when you modify:**
+- CSS files (styles)
+- JavaScript files (functionality changes)
+
+**No need to update when you modify:**
+- HTML files (they reference the versioned assets)
+- PHP backend files
+- Database schema
+
+#### How to Update Timestamps
+
+1. **Generate new timestamp:**
+   ```bash
+   date +%Y%m%d%H%M
+   # Output: 202603011751
+   ```
+
+2. **Rename the modified file(s):**
+   ```bash
+   mv css/styles-20260206143452.css css/styles-202603011751.css
+   mv js/utils-20260206143452.js js/utils-202603011751.js
+   ```
+
+3. **Update all references** in HTML and JS files:
+   ```bash
+   # Update HTML files
+   sed -i 's/styles-20260206143452/styles-202603011751/g' index.html map.html about.html
+   sed -i 's/utils-20260206143452/utils-202603011751/g' map.html
+   
+   # Update JS imports
+   sed -i 's/utils-20260206143452/utils-202603011751/g' js/index-20260226140500.js js/map-202603011751.js
+   ```
+
+4. **Verify no old references remain:**
+   ```bash
+   grep -r "20260206143452" --include="*.html" --include="*.js" .
+   ```
+
+#### Why This Approach?
+
+| Benefit | Explanation |
+|---------|-------------|
+| **Cache invalidation** | Browsers treat each timestamped file as unique, forcing download of new versions |
+| **Simple deployment** | No build process or CDN configuration needed |
+| **Version tracking** | Timestamps show exactly when each file was last modified |
+| **Easy rollback** | Keep old versions or revert to previous timestamps if needed |
+
+#### Path Detection for Update Script
+
+The `update_data_streaming.php` script uses smart path detection:
+
+```php
+// Priority order:
+// 1. Environment variables (FUELSEEKER_SCRIPT_DIR, FUELSEEKER_DATA_DIR)
+// 2. Auto-detection based on __DIR__ (works on both local and live)
+// 3. Fallback to hardcoded local paths
+```
+
+**Usage examples:**
+```bash
+# Auto-detect (works on both local and live)
+php not_for_website/update_data_streaming.php
+
+# Custom paths via environment variables
+FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts \
+FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data \
+php not_for_website/update_data_streaming.php
+```
+
+See `INSTALL.md` for more details on path configuration.
+
 ## Code Style Guidelines
 
 ### JavaScript

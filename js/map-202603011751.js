@@ -15,7 +15,7 @@ import {
     formatOpeningTimes,
     formatAddress,
     getFuelPrice
-} from './utils-20260206143452.js';
+} from './utils-202603011751.js';
 
 const SEARCH_RADIUS_MILES = 10;
 const DEFAULT_ZOOM = 13;
@@ -233,11 +233,11 @@ function createPopupContent(station, open) {
             <div class="station-prices">
                 <div class="price-row">
                     <span class="fuel-type">Diesel:</span>
-                    <span class="price">${dieselPrice !== '-' ? dieselPrice + 'p' : 'N/A'}</span>
+                    <span class="price ${dieselPrice === 'Not reported' ? 'no-price' : ''}">${dieselPrice !== 'Not reported' ? dieselPrice + 'p' : 'Not reported'}</span>
                 </div>
                 <div class="price-row">
                     <span class="fuel-type">Petrol:</span>
-                    <span class="price">${petrolPrice !== '-' ? petrolPrice + 'p' : 'N/A'}</span>
+                    <span class="price ${petrolPrice === 'Not reported' ? 'no-price' : ''}">${petrolPrice !== 'Not reported' ? petrolPrice + 'p' : 'Not reported'}</span>
                 </div>
             </div>
             <p class="station-hours">${escapeHtml(openingInfo)}</p>
@@ -269,8 +269,8 @@ function displayTable() {
         
         row.innerHTML = `
             <td class="station-name">${escapeHtml(station.trading_name || station.brand_name || 'Unknown')}</td>
-            <td class="price-cell ${dieselDisplay !== '-' ? 'has-price' : ''}">${dieselDisplay}</td>
-            <td class="price-cell ${petrolDisplay !== '-' ? 'has-price' : ''}">${petrolDisplay}</td>
+            <td class="price-cell ${dieselDisplay !== 'Not reported' ? 'has-price' : 'no-price'}">${dieselDisplay !== 'Not reported' ? dieselDisplay : '<span class="no-price">Not reported</span>'}</td>
+            <td class="price-cell ${petrolDisplay !== 'Not reported' ? 'has-price' : 'no-price'}">${petrolDisplay !== 'Not reported' ? petrolDisplay : '<span class="no-price">Not reported</span>'}</td>
             <td class="postcode-cell">
                 <a href="#" class="postcode-link" data-lat="${station.location.latitude}" data-lng="${station.location.longitude}">
                     ${escapeHtml(postcode)}
