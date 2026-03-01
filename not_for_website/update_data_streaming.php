@@ -239,12 +239,25 @@ try {
     @unlink($pricesCsv);
     
     logMsg("=== Update completed successfully ===");
+    writeExitStatus(0);
     exit(0);
     
 } catch (Exception $e) {
     logMsg("ERROR: " . $e->getMessage());
     file_put_contents($dataDir . '/update_error.log', date('Y-m-d H:i:s') . ' - ' . $e->getMessage() . "\n", FILE_APPEND);
+    writeExitStatus(1);
     exit(1);
+}
+
+/**
+ * Write exit status to status file if provided (for shell script tracking)
+ */
+function writeExitStatus($code) {
+    global $argv;
+    // If status file path provided as argument, write exit code to it
+    if (isset($argv[1])) {
+        @file_put_contents($argv[1], $code);
+    }
 }
 
 /**
@@ -481,7 +494,33 @@ function streamPricesToCsv($token, $fileHandle) {
  * Build database using SQLite CLI
  */
 function buildDatabaseWithCli($dbPath, $stationsCsv, $pricesCsv) {
-    $schema = file_get_contents(__DIR__ . '/schema.sql');
+    global $scriptDir, $dataDir;
+    
+    // Find schema.sql in multiple possible locations
+    $schemaPaths = [
+        // 1. Same directory as this script (local development)
+        __DIR__ . '/schema.sql',
+        // 2. Project not_for_website directory (script copied to /usr/local/bin)
+        dirname($scriptDir) . '/not_for_website/schema.sql',
+        // 3. Project scripts directory parent (alternative)
+        $dataDir . '/../not_for_website/schema.sql',
+        // 4. Absolute project path (when running from /usr/local/bin)
+        '/var/www/fuelseeker.net/not_for_website/schema.sql',
+    ];
+    
+    $schemaPath = null;
+    foreach ($schemaPaths as $path) {
+        if (file_exists($path)) {
+            $schemaPath = $path;
+            break;
+        }
+    }
+    
+    if (!$schemaPath) {
+        throw new Exception('Could not find schema.sql. Searched: ' . implode(', ', $schemaPaths));
+    }
+    
+    $schema = file_get_contents($schemaPath);
     
     $sqlFile = dirname($stationsCsv) . '/import.sql';
     $sql = <<<SQL

@@ -168,6 +168,10 @@ sudo nano /usr/local/bin/fuel-update-with-vpn.sh
 #!/bin/bash
 # Update fuel database with UK VPN connection
 
+# Set paths for the update script (required when script is in /usr/local/bin/)
+export FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts
+export FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data
+
 # Connect to UK server
 nordvpn connect United_Kingdom
 
@@ -253,10 +257,16 @@ For servers outside the UK, use a systemd service with the VPN wrapper script an
 This is the streaming database update script with low memory usage:
 
 ```bash
-# Copy the safe update script to your server
+# Copy the update script and required schema file to your server
 scp not_for_website/update_data_streaming.php user@fuelseeker.net:/tmp/
-ssh user@fuelseeker.net "sudo mv /tmp/update_data_streaming.php /usr/local/bin/update_data_streaming.php"
+scp not_for_website/schema.sql user@fuelseeker.net:/tmp/
+scp not_for_website/fuel-update-with-vpn.sh user@fuelseeker.net:/tmp/
+ssh user@fuelseeker.net "sudo mv /tmp/update_data_streaming.php /usr/local/bin/update_data_streaming.php && sudo mv /tmp/schema.sql /usr/local/bin/schema.sql && sudo mv /tmp/fuel-update-with-vpn.sh /usr/local/bin/fuel-update-with-vpn.sh && sudo chmod +x /usr/local/bin/fuel-update-with-vpn.sh"
 ```
+
+**Note:** 
+- `schema.sql` must be in the same directory as `update_data_streaming.php` (or in the project directory). The script searches multiple locations to find it.
+- The update has a 15-minute timeout. If your connection is slow, it may need more time.
 
 **Features of the streaming update script:**
 - Streams data directly to CSV (low memory ~10MB)
@@ -362,9 +372,23 @@ log "=== Update Process Complete ==="
 exit $UPDATE_STATUS
 ```
 
-Make it executable:
+Make it executable and add environment variables:
 ```bash
 sudo chmod +x /usr/local/bin/fuel-update-with-vpn.sh
+```
+
+**Important:** Add environment variables at the top of the script (after the shebang) so the PHP script knows where to find the project files:
+
+```bash
+#!/bin/bash
+# Update fuel database with UK VPN connection
+
+# Set paths for the update script (required when script is in /usr/local/bin/)
+export FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts
+export FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data
+
+LOG_FILE="/var/www/fuelseeker.net/data/update.log"
+...
 ```
 
 **2. Create the service file** (`/etc/systemd/system/fuelseeker-vpn-update.service`):
@@ -377,6 +401,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+# Set paths for the update script (required when script is in /usr/local/bin/)
+Environment="FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts"
+Environment="FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data"
 ExecStart=/usr/local/bin/fuel-update-with-vpn.sh
 StandardOutput=append:/var/www/fuelseeker.net/data/update.log
 StandardError=append:/var/www/fuelseeker.net/data/update.log
@@ -616,17 +643,130 @@ On shared hosting, you may need to use:
 chmod -R 777 /path/to/fuel/data
 ```
 
-#### 4. Cron Job Not Running
+#### 4. "Failed to open stream: config.php" Error
+
+**Cause**: The update script cannot find the project files because it's running from `/usr/local/bin/` but looking in the wrong location.
+
+**Fix**: Ensure environment variables are set in the wrapper script or systemd service:
+
+In `/usr/local/bin/fuel-update-with-vpn.sh`, add after the shebang:
+```bash
+export FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts
+export FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data
+```
+
+Or in the systemd service file `/etc/systemd/system/fuelseeker-vpn-update.service`, add to the [Service] section:
+```ini
+Environment="FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts"
+Environment="FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data"
+```
+
+Then reload: `sudo systemctl daemon-reload`
+
+#### 5. "Could not find schema.sql" Error
+
+**Cause**: The `update_data_streaming.php` script needs `schema.sql` to build the database, but it can't find it.
+
+**Fix**: Copy `schema.sql` to the same directory as the update script:
+
+```bash
+# If update script is in /usr/local/bin/
+sudo cp not_for_website/schema.sql /usr/local/bin/schema.sql
+
+# Or copy from the project directory
+sudo cp /var/www/fuelseeker.net/not_for_website/schema.sql /usr/local/bin/schema.sql
+```
+
+The script searches for `schema.sql` in multiple locations:
+1. Same directory as the update script
+2. Project's `not_for_website/` directory
+3. `/var/www/fuelseeker.net/not_for_website/schema.sql` (common deployment path)
+
+#### 6. SSH Disconnects When VPN Connects
+
+**Cause**: When NordVPN connects and IPv6 is disabled, your SSH connection may be dropped.
+
+**Fix**: Run the update using `nohup` or `screen` so it continues in the background:
+
+```bash
+# Using nohup
+sudo nohup /usr/local/bin/fuel-update-with-vpn.sh > /tmp/update.log 2>&1 &
+
+# Or using screen
+sudo screen -dmS fuelupdate /usr/local/bin/fuel-update-with-vpn.sh
+# Check status later: sudo screen -r fuelupdate
+```
+
+For systemd timer-based execution, this is not an issue since it runs without an SSH session.
+
+#### 7. IPv6 Stays Disabled / Can't Connect to Server After Failed Update
+
+**Cause**: If the script fails or is interrupted (e.g., SSH disconnect), IPv6 may remain disabled, breaking connectivity.
+
+**Fix**: The script now has automatic cleanup that **always** runs on exit (even on error):
+- Re-enables IPv6
+- Disconnects VPN
+- Removes port whitelists
+- Restores network config
+
+If you're still locked out, reboot the server or manually re-enable IPv6:
+```bash
+# From console/serial access (not SSH)
+sudo sysctl -w net.ipv6.conf.all.disable_ipv6=0
+sudo sysctl -w net.ipv6.conf.default.disable_ipv6=0
+sudo sysctl -w net.ipv6.conf.eth0.disable_ipv6=0
+sudo systemctl restart networking
+```
+
+#### 9. "Update timed out" Error
+
+**Cause**: The API is responding slowly or the connection is slow. The update script has a 15-minute timeout.
+
+**Fix**: This is usually temporary. Simply run the update again:
+
+```bash
+sudo nohup /usr/local/bin/fuel-update-with-vpn.sh > /tmp/update.log 2>&1 &
+```
+
+If it consistently times out, check:
+- VPN connection speed: `nordvpn status`
+- API reachability: `curl -s https://www.fuel-finder.service.gov.uk`
+- Server load: `free -h` and `top`
+
+#### 10. "Failed to fetch batch X: HTTP 500" Error
+
+**Cause**: The gov.uk Fuel Finder API returned a server error (HTTP 500). This is a temporary issue on their side.
+
+**Fix**: The script automatically retries once on 5xx errors. If it still fails, simply run the update again:
+
+```bash
+sudo nohup /usr/local/bin/fuel-update-with-vpn.sh > /tmp/update.log 2>&1 &
+```
+
+This is normal and happens occasionally when the API is under heavy load.
+
+#### 11. Cron Job Not Running
 
 **Check**: Verify the PHP path:
 ```bash
 which php
 ```
 
-**Test**: Run the command manually to see any errors:
+**Test**: Run the command manually (use `nohup` - SSH will disconnect!):
 ```bash
-/usr/bin/sudo /usr/local/bin/fuel-update-with-vpn.sh
+# IMPORTANT: SSH will disconnect when VPN connects!
+# Use nohup to keep the script running in background
+sudo nohup /usr/local/bin/fuel-update-with-vpn.sh > /tmp/update.log 2>&1 &
+
+# Wait a moment, then check the log
+sleep 15
+tail -f /tmp/update.log
+
+# To stop watching: Ctrl+C
+# The script continues running in background even if you disconnect
 ```
+
+**Why SSH disconnects**: When NordVPN connects, it changes the network routing table. Your SSH connection was established on the original IP/route, so it gets broken. This is **normal and expected**. The script continues running on the server.
 
 ## File Permissions
 

@@ -425,7 +425,32 @@ nordvpn whitelist add port 80
 nordvpn whitelist add port 443
 ```
 
-**IPv6 Issue:** NordVPN also disables IPv6 routing when connected. The script temporarily disables IPv6 at the kernel level during updates to prevent browsers from hanging while trying IPv6 first. IPv6 is re-enabled after VPN disconnects.
+**IPv6 Issue:** NordVPN also disables IPv6 routing when connected. The script temporarily disables IPv6 at the kernel level during updates to prevent browsers from hanging while trying IPv6 first.
+
+**Safety Feature:** The script uses a `trap` that **always** runs cleanup on exit (success, error, or interrupt). This ensures IPv6 is re-enabled and VPN is disconnected even if the script crashes or SSH disconnects.
+
+### SSH Disconnects When VPN Connects
+
+**Root Cause:** When NordVPN connects, it changes the network routing table. Your SSH connection was established on the original IP/route, so it gets broken.
+
+**Solution:** This is **expected behavior**. Use `nohup` to run the script in the background so it continues even if SSH disconnects:
+
+```bash
+# Run in background (won't stop when SSH disconnects)
+sudo nohup /usr/local/bin/fuel-update-with-vpn.sh > /tmp/update.log 2>&1 &
+
+# Check progress
+sleep 15
+tail -f /tmp/update.log
+```
+
+Or use `screen`:
+```bash
+sudo screen -dmS fuelupdate /usr/local/bin/fuel-update-with-vpn.sh
+# Check later: sudo screen -r fuelupdate
+```
+
+**Note:** Systemd timer-based execution doesn't have this issue since it runs without an SSH session.
 
 ### Permission Denied
 ```bash
