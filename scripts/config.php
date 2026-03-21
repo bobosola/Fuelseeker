@@ -3,22 +3,14 @@
  * Configuration file for Fuel Finder
  * 
  * Loads API credentials from environment variables.
- * If .env file exists, it will be loaded.
  */
 
-// Load .env file if it exists (check multiple locations)
-$envFiles = [
-    __DIR__ . '/.env',        // Same directory (scripts folder)
-];
-
+// Load .env file if it exists 
+$file = __DIR__ . '/.env';
 $envFile = null;
-foreach ($envFiles as $file) {
-    if (file_exists($file)) {
-        $envFile = $file;
-        break;
-    }
+if (file_exists($file)) {
+    $envFile = $file;
 }
-
 if ($envFile) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
@@ -54,6 +46,8 @@ define('FUEL_CLIENT_ID', getenv('FUEL_CLIENT_ID') ?: '');
 define('FUEL_CLIENT_SECRET', getenv('FUEL_CLIENT_SECRET') ?: '');
 define('OS_API_KEY', getenv('OS_API_KEY') ?: '');
 define('OS_API_SECRET', getenv('OS_API_SECRET') ?: '');
+define('DEPLOY_API_KEY', getenv('DEPLOY_API_KEY') ?: '');
+
 
 // Validate configuration
 function validateConfig() {
@@ -70,6 +64,9 @@ function validateConfig() {
     }
     if (empty(OS_API_SECRET)) {
         $missing[] = 'OS_API_SECRET';
+    }
+    if (empty(DEPLOY_API_KEY)) {
+        $missing[] = 'DEPLOY_API_KEY';
     }
     
     if (!empty($missing)) {
