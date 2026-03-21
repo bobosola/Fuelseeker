@@ -15,9 +15,9 @@ import {
     formatOpeningTimes,
     formatAddress,
     getFuelPrice
-} from './utils-202603011751.js';
+} from './utils-202603212044.js';
 
-const SEARCH_RADIUS_MILES = 10;
+const SEARCH_RADIUS_MILES = 20;
 const DEFAULT_ZOOM = 13;
 
 let map = null;

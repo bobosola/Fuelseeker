@@ -114,9 +114,8 @@ function formatTime(timeStr) {
     if (!timeStr) return '';
     const [hours, minutes] = timeStr.split(':');
     const h = parseInt(hours, 10);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const h12 = h % 12 || 12;
-    return `${h12}:${minutes} ${ampm}`;
+    const h24 = h.toString().padStart(2, '0');
+    return `${h24}:${minutes}`;
 }
 
 /**
