@@ -1,5 +1,5 @@
-# Environment variables (contains secrets)
-.env
+# Secret configuration files (contains API credentials)
+.secrets
 
 # Data directory (contains SQLite database)
 /data/

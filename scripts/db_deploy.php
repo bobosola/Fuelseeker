@@ -11,8 +11,8 @@
 // ============================================================================
 require_once __DIR__ . '/config.php';
 
-// Deployment API key from environment
-$deployApiKey = getenv('DEPLOY_API_KEY') ?: '';
+// Deployment API key from config
+$deployApiKey = DEPLOY_API_KEY;
 
 // File size limits (bytes)
 const MIN_FILE_SIZE = 1024 * 1024;      // 1 MB minimum
@@ -96,8 +96,18 @@ function validateSQLiteFile($filePath) {
 function atomicSwap($newFile) {
     global $symlinkPath, $versionA, $versionB;
     
+    // Debug logging
+    logDeploy("atomicSwap called with temp file: $newFile", 'DEBUG');
+    logDeploy("  File exists: " . (file_exists($newFile) ? 'YES' : 'NO'), 'DEBUG');
+    logDeploy("  File readable: " . (is_readable($newFile) ? 'YES' : 'NO'), 'DEBUG');
+    logDeploy("  File size: " . filesize($newFile) . " bytes", 'DEBUG');
+    logDeploy("  Current symlink: $symlinkPath", 'DEBUG');
+    logDeploy("  Symlink exists: " . (file_exists($symlinkPath) || is_link($symlinkPath) ? 'YES' : 'NO'), 'DEBUG');
+    
     // Determine which version to write to (the one NOT currently symlinked)
     $currentTarget = @readlink($symlinkPath);
+    logDeploy("  Current target: " . ($currentTarget ?: 'none'), 'DEBUG');
+    
     if ($currentTarget === false) {
         // No symlink exists, this is first deployment
         $targetVersion = $versionA;
@@ -106,6 +116,7 @@ function atomicSwap($newFile) {
     } else {
         $targetVersion = $versionB;
     }
+    logDeploy("  Target version: $targetVersion", 'DEBUG');
     
     // Log the swap details
     $oldVersion = basename($currentTarget ?: 'none');
@@ -118,12 +129,61 @@ function atomicSwap($newFile) {
         }
     }
     
-    // Move uploaded file to target version
-    if (!rename($newFile, $targetVersion)) {
+    // Check if we can write to the target directory
+    $targetDir = dirname($targetVersion);
+    logDeploy("  Target directory: $targetDir", 'DEBUG');
+    logDeploy("  Target dir exists: " . (is_dir($targetDir) ? 'YES' : 'NO'), 'DEBUG');
+    logDeploy("  Target dir writable: " . (is_writable($targetDir) ? 'YES' : 'NO'), 'DEBUG');
+    if (is_dir($targetDir)) {
+        logDeploy("  Target dir perms: " . substr(sprintf('%o', fileperms($targetDir)), -4), 'DEBUG');
+        logDeploy("  Target dir owner: " . posix_getpwuid(fileowner($targetDir))['name'] ?? fileowner($targetDir), 'DEBUG');
+    }
+    
+    if (!is_writable($targetDir)) {
         return [
             'success' => false,
-            'error' => 'Failed to move uploaded file to target location'
+            'error' => 'Target directory not writable: ' . $targetDir . ' (permissions: ' . substr(sprintf('%o', fileperms($targetDir)), -4) . ', owner: ' . (posix_getpwuid(fileowner($targetDir))['name'] ?? fileowner($targetDir)) . ')'
         ];
+    }
+    
+    // Check source file exists and is readable
+    if (!file_exists($newFile) || !is_readable($newFile)) {
+        return [
+            'success' => false,
+            'error' => 'Uploaded file not accessible: ' . $newFile . ' (exists: ' . (file_exists($newFile) ? 'yes' : 'no') . ', readable: ' . (is_readable($newFile) ? 'yes' : 'no') . ')'
+        ];
+    }
+    
+    // If target exists, try to remove it first
+    if (file_exists($targetVersion)) {
+        if (!unlink($targetVersion)) {
+            return [
+                'success' => false,
+                'error' => 'Cannot remove existing target file: ' . $targetVersion
+            ];
+        }
+    }
+    
+    // Move uploaded file to target version
+    // Use rename() first (faster), fallback to copy+delete for cross-device moves
+    $renameSuccess = @rename($newFile, $targetVersion);
+    
+    if (!$renameSuccess) {
+        $error = error_get_last();
+        logDeploy('rename() failed: ' . ($error['message'] ?? 'unknown error') . ', trying copy+unlink', 'WARN');
+        
+        if (!copy($newFile, $targetVersion)) {
+            $error = error_get_last();
+            return [
+                'success' => false,
+                'error' => 'Failed to copy uploaded file: ' . ($error['message'] ?? 'unknown error') . '. Check that PHP has write permission to: ' . $targetDir
+            ];
+        }
+        
+        // Copy succeeded, now delete the original
+        if (!unlink($newFile)) {
+            logDeploy('Warning: Could not delete temp file after copy: ' . $newFile, 'WARN');
+        }
     }
     
     // Set appropriate permissions
@@ -208,12 +268,75 @@ if (empty($providedKey) || $providedKey !== $deployApiKey) {
 // Validate file upload
 if (!isset($_FILES['database']) || $_FILES['database']['error'] !== UPLOAD_ERR_OK) {
     $errorCode = $_FILES['database']['error'] ?? 'no_file';
-    logDeploy("File upload failed with code: $errorCode", 'ERROR');
-    sendResponse(false, 'File upload failed: ' . ($errorCode === UPLOAD_ERR_INI_SIZE ? 'file too large' : 'upload error ' . $errorCode), [], 400);
+    $errorMessages = [
+        UPLOAD_ERR_INI_SIZE => 'file too large (exceeds upload_max_filesize)',
+        UPLOAD_ERR_FORM_SIZE => 'file too large (exceeds form MAX_FILE_SIZE)',
+        UPLOAD_ERR_PARTIAL => 'file partially uploaded (network/timeout issue)',
+        UPLOAD_ERR_NO_FILE => 'no file uploaded',
+        UPLOAD_ERR_NO_TMP_DIR => 'missing temp folder',
+        UPLOAD_ERR_CANT_WRITE => 'failed to write to disk',
+        UPLOAD_ERR_EXTENSION => 'upload stopped by extension'
+    ];
+    $errorMsg = $errorMessages[$errorCode] ?? "unknown error (code $errorCode)";
+    logDeploy("File upload failed: $errorMsg", 'ERROR');
+    sendResponse(false, 'File upload failed: ' . $errorMsg, [], 400);
 }
 
 $uploadedFile = $_FILES['database']['tmp_name'];
 $fileSize = $_FILES['database']['size'];
+
+// Check if file is gzip compressed
+$isGzipped = false;
+foreach ($headers as $name => $value) {
+    if (strtolower($name) === 'x-content-encoding' && strtolower($value) === 'gzip') {
+        $isGzipped = true;
+        break;
+    }
+}
+
+// Also check by examining file magic bytes (gzip starts with 0x1f 0x8b)
+if (!$isGzipped && file_exists($uploadedFile)) {
+    $fh = fopen($uploadedFile, 'rb');
+    if ($fh) {
+        $magic = fread($fh, 2);
+        fclose($fh);
+        $isGzipped = ($magic === "\x1f\x8b");
+    }
+}
+
+// Decompress if gzip encoded
+if ($isGzipped) {
+    logDeploy("Received gzip-compressed file ($fileSize bytes), decompressing...", 'INFO');
+    
+    if (!extension_loaded('zlib')) {
+        @unlink($uploadedFile);
+        logDeploy("Cannot decompress: zlib extension not available", 'ERROR');
+        sendResponse(false, 'Server error: cannot decompress file', [], 500);
+    }
+    
+    $decompressedFile = $uploadedFile . '.decompressed';
+    $input = gzopen($uploadedFile, 'rb');
+    $output = fopen($decompressedFile, 'wb');
+    
+    if (!$input || !$output) {
+        @unlink($uploadedFile);
+        @unlink($decompressedFile);
+        logDeploy("Failed to open files for decompression", 'ERROR');
+        sendResponse(false, 'Server error: decompression failed', [], 500);
+    }
+    
+    while (!gzeof($input)) {
+        fwrite($output, gzread($input, 1024 * 1024)); // 1MB chunks
+    }
+    
+    gzclose($input);
+    fclose($output);
+    unlink($uploadedFile); // Remove compressed file
+    
+    $uploadedFile = $decompressedFile;
+    $fileSize = filesize($uploadedFile);
+    logDeploy("Decompressed to $fileSize bytes", 'INFO');
+}
 
 // Validate file size
 if ($fileSize < MIN_FILE_SIZE) {

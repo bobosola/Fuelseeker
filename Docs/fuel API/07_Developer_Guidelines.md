@@ -195,8 +195,8 @@ filename-YYYYMMDDHHMM.ext
 
 Examples:
 - `styles-202603011751.css` (updated March 1, 2026 at 17:51)
-- `utils-202603011751.js`
-- `map-202603011751.js`
+- `utils-202603212044.js`
+- `map-202603212044.js`
 
 #### When Modifying Assets
 

@@ -4,4 +4,5 @@ exclude-list.txt
 /stats
 /Docs
 /data
-/not_for_website
+/data_retrieval_server
+/logs

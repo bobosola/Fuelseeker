@@ -16,46 +16,59 @@ A fast web application to find fuel stations and compare petrol and diesel price
 Unlike typical apps that query an API every time you search, Fuelseeker.net:
 
 1. **Downloads all UK fuel station data** (~7,000 stations) to a local SQLite database
-2. **Updates 3x daily** via systemd timer to keep prices current (auto-connects VPN for non-UK servers)
+2. **Updates 3x daily** via automated deployment from a UK-based PC to keep prices current
 3. **Queries locally** for instant results - no network delays!
+
+### Architecture
+
+The site uses a split architecture:
+- **Web Server** (any location): Serves the website and hosts the SQLite database
+- **UK PC** (`data_retrieval_server/`): Downloads fuel data from the UK-only gov.uk API and deploys it to the web server via HTTPS
+
+This avoids VPN complications when the web server is outside the UK.
 
 ## Quick Start
 
-### 1. Initial Setup
+### 1. Web Server Setup
 
 ```bash
 # Clone/download files to your web server
 cd /var/www/fuel
 
 # Copy and configure environment variables
-cp .env.example .env
-# Edit .env and add your API credentials
+cp scripts/.secrets.example scripts/.secrets
+# Edit scripts/.secrets and add your API credentials (for OS geocoding API)
 
 # Create data directory
 mkdir data
 chmod 755 data
 
-# Download initial fuel data (takes 1-2 minutes)
-# First copy scripts to system location:
-sudo cp not_for_website/update_data_streaming.php /usr/local/bin/
-sudo cp not_for_website/fuel-update-with-vpn.sh /usr/local/bin/
-
-# Then run (non-UK servers must use VPN wrapper):
-# UK servers: php /usr/local/bin/update_data_streaming.php
-# Non-UK servers: sudo /usr/local/bin/fuel-update-with-vpn.sh
+# The database will be deployed automatically from the UK PC
+# See data_retrieval_server/ for UK PC setup
 ```
 
-**Note:** API credentials are stored in `.env` (not committed to Git). Copy `.env.example` to `.env` and fill in your credentials.
+**Note:** API credentials are stored in `scripts/.secrets` (not committed to Git). Copy `scripts/.secrets.example` to `scripts/.secrets` and fill in your credentials.
 
 ### 2. Access the Site
 
 Open `https://your-domain.com/` in your browser.
 
-### 3. Set Up Automatic Updates
+### 3. Set Up Automatic Updates (UK PC)
 
-Set up automatic updates using **systemd timer** (recommended) - see [INSTALL.md](INSTALL.md) for details.
+On a UK-based PC, set up the data retrieval system:
 
-The update runs 3x daily at 06:00, 14:00, and 22:00 using a VPN connection for non-UK servers.
+```bash
+cd data_retrieval_server/
+cp .secrets.example .secrets
+# Edit .secrets and add your API credentials
+
+# Test deployment
+php deploy_to_remote_server.php
+```
+
+See [DEPLOYMENT_PLAN.md](DEPLOYMENT_PLAN.md) for complete setup instructions.
+
+The UK PC should run this automatically via cron or systemd timer.
 
 ## Detailed Installation
 
@@ -84,52 +97,42 @@ See **[INSTALL.md](INSTALL.md)** for complete installation instructions includin
 
 ```
 fuel/
-├── data/                   # SQLite database (auto-created)
+├── data/                   # SQLite database (auto-deployed from UK PC)
 │   ├── fuel_data.db        # Symlink to active database
 │   ├── fuel_data.db.v1     # Database file (alternating)
 │   ├── fuel_data.db.v2     # Database file (alternating)
 │   ├── update.log          # Update logs
-│   └── update_error.log    # Error logs
-├── not_for_website/        # Server-side scripts (not web accessible)
-│   ├── update_data_streaming.php # Streaming update script (low memory, no hangs)
-│   ├── fuel-update-with-vpn.sh   # VPN wrapper script
-│   ├── fuelseeker-vpn-update.timer   # systemd timer (3x daily)
-│   ├── fuelseeker-vpn-update.service # systemd service
-│   ├── schema.sql              # Database schema
-│   └── DATABASE-UPDATE-OPTIMIZATION.md # Performance guide
-├── scripts/                # PHP backend scripts (web accessible)
-│   ├── api_proxy.php       # Fuel Finder API proxy
+│   └── deploy.log          # Deployment logs
+├── data_retrieval_server/  # UK PC data retrieval scripts
+│   ├── deploy_to_remote_server.php  # Main deployment script
 │   ├── config.php          # Configuration loader
+│   ├── schema.sql          # Database schema
+│   ├── .secrets.example    # Example secrets file
+│   └── README.md           # UK PC setup instructions
+├── scripts/                # PHP backend scripts (web accessible)
+│   ├── db_deploy.php       # Database deployment endpoint (receives from UK PC)
 │   ├── local_api.php       # Fast local API endpoints
+│   ├── config.php          # Configuration loader
 │   ├── os_token.php        # Ordnance Survey token handler
 │   ├── token.php           # CSRF token handler
-│   └── .env                # API credentials (gitignored)
+│   └── .secrets            # API credentials (gitignored)
 ├── js/                     # JavaScript modules
-│   ├── api.js              # API calls
-│   ├── index.js            # Home page logic
-│   ├── map.js              # Map page logic
-│   └── utils.js            # Utility functions
+│   ├── api-*.js            # API calls
+│   ├── index-*.js          # Home page logic
+│   ├── map-*.js            # Map page logic
+│   └── utils-*.js          # Utility functions
 ├── css/
-│   └── styles.css          # Stylesheet
-├── Docs/                   # API documentation
-│   ├── API_authentication.md
-│   ├── API_Testing.md
+│   └── styles-*.css        # Stylesheet
+├── Docs/                   # Documentation
+│   ├── fuel API/           # gov.uk Fuel Finder API documentation
 │   ├── Application_Design.md
-│   ├── Developer_Guidelines.md
-│   ├── Fuel_Finder_Public_API.md
-│   ├── Fuel_Finder_REST_API.md
-│   ├── Information_Recipient_APIs.md
-│   ├── OAuth_Access_Token_Generation_API.md
-│   ├── README.md
-│   └── Support.md
-├── errors/
-│   └── errors.html         # Error page
-├── stats/
-│   └── index.html          # Stats page
+│   └── README.md
+├── errors/                 # Error page templates
 ├── about.html              # About page
 ├── index.html              # Home page
 ├── map.html                # Results page
-├── INSTALL.md              # Installation guide
+├── DEPLOYMENT_PLAN.md      # UK PC deployment architecture
+├── INSTALL.md              # Installation guide (legacy VPN method)
 └── README.md               # This file
 ```
 

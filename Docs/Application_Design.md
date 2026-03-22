@@ -14,7 +14,7 @@ The site will have a home page which lets the user enter:
  
 or choose to allow the site to get the user's current location if the location API is available
 
-Then the site will show a map centred on the user's current location (e.g. on phones and tablets) or the chosen location (e.g. desktop computers). The site will then access the gov.uk fuel prices API (documentation for this starts in /Users/bobosola/Sites/Fuel/Docs/README.md) to display local fuel stations and prices on the map.
+Then the site will show a map centred on the user's current location (e.g. on phones and tablets) or the chosen location (e.g. desktop computers). The site will then access the gov.uk fuel prices API (documentation for this starts in [Docs/README.md](README.md)) to display local fuel stations and prices on the map.
 
 The map should show open fuel stations as green icons in the immediate location within an approximateradius of 5 miles. Clicking on an icon should reveal a popup with useful details about the fuel station (address, opening times etc.). Any fuel station that is not currently open should have a red icon.
 

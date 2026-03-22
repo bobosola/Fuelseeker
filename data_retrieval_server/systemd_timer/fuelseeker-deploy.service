@@ -1,0 +1,26 @@
+[Unit]
+Description=FuelSeeker Database Deployment to Remote Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=bobosola
+
+# Working directory where deploy_to_remote_server.php is located
+WorkingDirectory=/home/bobosola/fuelseeker
+
+# Run the deployment script
+ExecStart=/usr/bin/php deploy_to_remote_server.php
+
+# Log output
+StandardOutput=append:/home/bobosola/fuelseeker/data/logs/deploy.log
+StandardError=append:/home/bobosola/fuelseeker/data/logs/deploy.log
+
+# Resource limits
+CPUQuota=50%
+MemoryMax=256M
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

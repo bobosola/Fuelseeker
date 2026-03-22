@@ -10,7 +10,13 @@ Fuelseeker.net is a fast, lightweight web application for finding fuel stations 
 - Plain CSS3 with CSS variables
 - PHP 7.4+ backend for API proxying and database management
 - SQLite for local data caching
-- Updated once daily at 02:00 via systemd timer (with VPN auto-connect for non-UK servers)
+- **Split architecture**: Data retrieved by UK PC, deployed to web server via HTTPS
+
+**Architecture:**
+- **Web Server** (any location): Serves website, hosts SQLite database
+- **UK PC** (`data_retrieval_server/`): Downloads fuel data from UK-only gov.uk API and deploys to web server
+
+This avoids VPN complications when the web server is outside the UK.
 
 ## Technology Stack
 
@@ -43,32 +49,34 @@ fuel/
 ├── map.html                # Results page with map and price table
 ├── about.html              # About page
 ├── css/
-│   └── styles.css          # Main stylesheet with CSS variables
+│   └── styles-*.css        # Main stylesheet with CSS variables (timestamped)
 ├── js/
-│   ├── api.js              # API calls (local SQLite, OS geocoding)
-│   ├── index.js            # Home page logic (search, geolocation)
-│   ├── map.js              # Map page logic (Leaflet, table sorting)
-│   └── utils.js            # Utility functions (distance calc, formatting)
-├── scripts/                # PHP backend (API credentials required)
+│   ├── api-*.js            # API calls (local SQLite, OS geocoding)
+│   ├── index-*.js          # Home page logic (search, geolocation)
+│   ├── map-*.js            # Map page logic (Leaflet, table sorting)
+│   └── utils-*.js          # Utility functions (distance calc, formatting)
+├── scripts/                # PHP backend (web accessible)
+│   ├── db_deploy.php       # Database deployment endpoint (receives from UK PC)
 │   ├── config.php          # Configuration loader (.env file support)
 │   ├── local_api.php       # Fast local API endpoints (SQLite queries)
-│   ├── api_proxy.php       # Fuel Finder API proxy with CSRF protection
+│   ├── os_token.php        # Ordnance Survey OAuth proxy
 │   ├── token.php           # CSRF token handler
-│   └── os_token.php        # Ordnance Survey OAuth proxy
-├── data/                   # SQLite database (created at runtime, gitignored)
+│   └── .env                # API credentials (gitignored)
+├── data/                   # SQLite database (auto-deployed, gitignored)
 │   ├── fuel_data.db        # Symlink to active database file
 │   ├── fuel_data.db.v1     # Actual database file (alternating)
 │   ├── fuel_data.db.v2     # Actual database file (alternating)
-│   ├── update.log          # Cron job logs
-│   └── update_error.log    # Error logs
-├── Docs/                   # API documentation (gov.uk Fuel Finder)
-├── not_for_website/        # Deployment scripts and database schema
-│   ├── schema.sql          # SQLite database schema
-│   ├── update_data_streaming.php # **RECOMMENDED** Streaming update (low memory, no hangs)
-│   ├── DATABASE-UPDATE-OPTIMIZATION.md # Performance optimization guide
-│   ├── fuel-update-with-vpn.sh # VPN wrapper for update script
-│   ├── fuelseeker-vpn-update.service # systemd service file
-│   └── fuelseeker-vpn-update.timer   # systemd timer file (runs 3x daily)
+│   └── deploy.log          # Deployment logs
+├── data_retrieval_server/  # UK PC data retrieval (copy to UK PC)
+│   ├── deploy_to_remote_server.php  # Main deployment script
+│   ├── config.php          # Configuration loader
+│   ├── schema.sql          # Database schema
+│   ├── .env.example        # Example environment file
+│   └── README.md           # UK PC setup instructions
+├── Docs/                   # Documentation
+│   ├── fuel API/           # gov.uk Fuel Finder API documentation
+│   ├── Application_Design.md
+│   └── README.md
 └── errors/                 # Error page templates
 ```
 
@@ -76,19 +84,24 @@ fuel/
 
 ### Environment Variables (`.env` file)
 
-Create `.env` in the `scripts/` directory (NOT in git):
+Create `.secrets` in the `scripts/` directory (NOT in git):
 
 ```bash
-# Fuel Finder API credentials (from https://www.fuel-finder.service.gov.uk)
-FUEL_CLIENT_ID=your_client_id_here
-FUEL_CLIENT_SECRET=your_client_secret_here
+cp scripts/.secrets.example scripts/.secrets
+# Edit scripts/.secrets and add your API credentials
+```
 
+Content:
+```bash
 # Ordnance Survey API credentials (from https://osdatahub.os.uk/)
 OS_API_KEY=your_api_key_here
 OS_API_SECRET=your_api_secret_here
+
+# Deployment API key (must match UK PC)
+DEPLOY_API_KEY=your_deployment_key_here
 ```
 
-The `.env` file is automatically loaded by `scripts/config.php`.
+The `.secrets` file is automatically loaded by `scripts/config.php` which defines constants directly from the values.
 
 ### File Permissions
 
@@ -118,42 +131,47 @@ This project has **no build process**. Files are deployed as-is to the web serve
    ```
 4. **Run initial data population**:
    ```bash
-   # Copy to system location:
-   sudo cp not_for_website/update_data_streaming.php /usr/local/bin/
-   sudo cp not_for_website/fuel-update-with-vpn.sh /usr/local/bin/
+   # For UK PC deployment (recommended):
+   cd data_retrieval_server/
+   php deploy_to_remote_server.php
    
-   # Run update (non-UK servers must use VPN wrapper):
-   sudo /usr/local/bin/fuel-update-with-vpn.sh
+   # For legacy VPN method (not recommended):
+   # sudo /usr/local/bin/fuel-update-with-vpn.sh
    ```
 
-### Database Updates
+### Database Updates (UK PC Deployment)
 
-The fuel prices change throughout the day. With the streaming import method, the database can be updated **3 times daily** without server impact:
+The fuel prices change throughout the day. The database is updated via **deployment from a UK-based PC** to avoid VPN complications on the web server.
 
-```bash
-# Systemd timer runs: /usr/local/bin/fuel-update-with-vpn.sh
-# Default schedule: 06:00, 14:00, 22:00 (every 8 hours)
+**Architecture:**
+```
+UK PC (Home/Office)          Web Server (Any location)
+     │                               │
+     ├── Downloads fuel data ───────►│
+     │    (UK-only API access)       │
+     │                               │
+     └── Deploys via HTTPS ────────►├─ Receives database
+                                    ├─ Performs atomic swap
+                                    └─ Serves updated data
 ```
 
-**Update Scripts:**
-- **`not_for_website/update_data_streaming.php`** (RECOMMENDED): Streaming CSV import with minimal memory (~10MB) and CPU throttling. No server hangs.
-- **`not_for_website/fuel-update-with-vpn.sh`**: VPN wrapper that handles NordVPN connection, port whitelisting, and IPv6 management automatically.
+**UK PC Setup:**
+1. Copy `data_retrieval_server/` files to a UK-based PC
+2. Configure `data_retrieval_server/.env` with API credentials
+3. Run `php deploy_to_remote_server.php` to test
+4. Set up cron/systemd timer for automatic updates (3x daily recommended)
 
 **Update frequency options:**
 - **3x daily (recommended)**: 06:00, 14:00, 22:00 - Good price accuracy
 - **4x daily**: Every 6 hours - Maximum freshness
-- **Custom**: Edit the systemd timer with `systemctl edit`
 
-**Important:** The gov.uk Fuel Finder API is **UK-only**. Non-UK servers will get HTTP 403.
-Solutions:
-1. Run updates from a UK-based computer, copy database to server
-2. Use NordVPN CLI on the server (see `not_for_website/fuel-update-with-vpn.sh`)
-3. Use a UK proxy server
-4. Run a UK-based VPS solely for updates
+**How it works:**
+1. UK PC downloads fuel data from gov.uk API (UK IP required)
+2. Builds SQLite database locally using streaming import (~10MB memory)
+3. Uploads database to web server via HTTPS POST to `scripts/db_deploy.php`
+4. Web server performs atomic symlink swap for zero downtime
 
-See `INSTALL.md` for detailed VPN setup instructions.
-
-See `not_for_website/DATABASE-UPDATE-OPTIMIZATION.md` for performance details and troubleshooting.
+See `DEPLOYMENT_PLAN.md` for complete setup instructions.
 
 ### Zero-Downtime Updates (Production)
 
@@ -178,7 +196,7 @@ The streaming update script uses **atomic symlink swap** for zero-downtime:
 | Memory | ~10MB (constant) |
 | Server impact | None (no hangs) |
 
-The streaming version writes data directly to CSV during API fetch, avoiding memory exhaustion that can hang small VPS servers. See `not_for_website/DATABASE-UPDATE-OPTIMIZATION.md` for details.
+The streaming version writes data directly to CSV during API fetch, avoiding memory exhaustion. The UK PC uses this same streaming approach in `deploy_to_remote_server.php`.
 
 ### Cache Busting (File Versioning)
 
@@ -189,8 +207,8 @@ To ensure users always get the latest CSS and JavaScript files after updates, th
 All CSS and JS files include a timestamp in their filename:
 ```
 css/styles-202603011751.css       # Format: YYYYMMDDHHMM
-js/utils-202603011751.js
-js/map-202603011751.js
+js/utils-202603212044.js
+js/map-202603212044.js
 js/index-202603011751.js
 ```
 
@@ -216,17 +234,17 @@ js/index-202603011751.js
 2. **Rename the modified file(s):**
    ```bash
    mv css/styles-20260206143452.css css/styles-202603011751.css
-   mv js/utils-20260206143452.js js/utils-202603011751.js
+   mv js/utils-20260206143452.js js/utils-202603212044.js
    ```
 
 3. **Update all references** in HTML and JS files:
    ```bash
    # Update HTML files
    sed -i 's/styles-20260206143452/styles-202603011751/g' index.html map.html about.html
-   sed -i 's/utils-20260206143452/utils-202603011751/g' map.html
+   sed -i 's/utils-20260206143452/utils-202603212044/g' map.html
    
    # Update JS imports
-   sed -i 's/utils-20260206143452/utils-202603011751/g' js/index-20260226140500.js js/map-202603011751.js
+   sed -i 's/utils-20260206143452/utils-202603212044/g' js/index-20260226140500.js js/map-202603212044.js
    ```
 
 4. **Verify no old references remain:**
@@ -256,13 +274,13 @@ The `update_data_streaming.php` script uses smart path detection:
 
 **Usage examples:**
 ```bash
-# Auto-detect (works on both local and live)
-php not_for_website/update_data_streaming.php
+# UK PC deployment (recommended)
+cd data_retrieval_server/
+php deploy_to_remote_server.php
 
-# Custom paths via environment variables
-FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts \
-FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data \
-php not_for_website/update_data_streaming.php
+# With custom deploy URL
+DEPLOY_URL=https://your-domain.com/scripts/db_deploy.php \
+php deploy_to_remote_server.php
 ```
 
 See `INSTALL.md` for more details on path configuration.
@@ -342,6 +360,11 @@ Example:
 - **MUST** be protected from web access in production
 - Apache/nginx: Deny access to `data/` directory
 - Caddy: Use `hide` directive to block access to dotfiles and data
+- **MUST** be writable by PHP/web server for database deployment
+  ```bash
+  chmod 755 data
+  chown www-data:www-data data  # Adjust user/group for your web server
+  ```
 
 ### HTTPS
 - Always use HTTPS in production to protect user location data
@@ -365,7 +388,7 @@ Example:
 
 ## Database Schema
 
-See `not_for_website/schema.sql` for full schema.
+See `data_retrieval_server/schema.sql` for full schema.
 
 **Tables:**
 - `stations` - Fuel station details (location, amenities, opening times)
@@ -396,11 +419,11 @@ See `not_for_website/schema.sql` for full schema.
    - `curl https://your-domain.com/scripts/local_api.php?action=status`
    - Should return JSON with station count and last update
    
-4. **Database update**
-   - Run `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_streaming.php` (UK)
-   - Check `data/update.log` for success
-   - Verify `data/fuel_data.db` exists and is populated
-   - Site should remain accessible during the update (no hangs)
+4. **Database deployment**
+   - Run `php deploy_to_remote_server.php` from the UK PC
+   - Check `data/logs/deploy.log` for success
+   - Verify `data/fuel_data.db` exists and is populated on web server
+   - Check deployment status: `curl https://your-domain.com/scripts/db_deploy.php?action=status`
 
 ### No Automated Tests
 
@@ -409,48 +432,29 @@ This project does not have a test suite. Testing is manual.
 ## Common Issues
 
 ### "Database not initialized" Error
-Run: `sudo /usr/local/bin/fuel-update-with-vpn.sh` (non-UK) or `php /usr/local/bin/update_data_streaming.php` (UK)
+Run the deployment script from the UK PC:
+```bash
+cd data_retrieval_server/
+php deploy_to_remote_server.php
+```
 
 ### "Failed to get OAuth token" / HTTP 403
-Your server is outside the UK. See "Database Updates" section above for VPN solutions.
+The UK PC cannot access the gov.uk Fuel Finder API. Ensure:
+- The PC is located in the UK (or using a UK VPN)
+- API credentials in `data_retrieval_server/.env` are correct
 
-### Web Server Hangs During VPN Connection
-If your web server (Caddy/nginx/Apache) appears to hang when the VPN connects:
+### Deployment Failed / Upload Error
 
-**Root Cause:** NordVPN adds iptables rules that drop all incoming IPv4 traffic on eth0 except whitelisted ports. By default only SSH (22) is whitelisted.
-
-**Solution:** The `fuel-update-with-vpn.sh` script now automatically whitelists ports 80, 443, and 22 before connecting VPN. If you're using a custom VPN setup, add:
+**Check the UK PC logs:**
 ```bash
-nordvpn whitelist add port 80
-nordvpn whitelist add port 443
+tail -f data/logs/deploy.log
 ```
 
-**IPv6 Issue:** NordVPN also disables IPv6 routing when connected. The script temporarily disables IPv6 at the kernel level during updates to prevent browsers from hanging while trying IPv6 first.
-
-**Safety Feature:** The script uses a `trap` that **always** runs cleanup on exit (success, error, or interrupt). This ensures IPv6 is re-enabled and VPN is disconnected even if the script crashes or SSH disconnects.
-
-### SSH Disconnects When VPN Connects
-
-**Root Cause:** When NordVPN connects, it changes the network routing table. Your SSH connection was established on the original IP/route, so it gets broken.
-
-**Solution:** This is **expected behavior**. Use `nohup` to run the script in the background so it continues even if SSH disconnects:
-
-```bash
-# Run in background (won't stop when SSH disconnects)
-sudo nohup /usr/local/bin/fuel-update-with-vpn.sh > /tmp/update.log 2>&1 &
-
-# Check progress
-sleep 15
-tail -f /tmp/update.log
-```
-
-Or use `screen`:
-```bash
-sudo screen -dmS fuelupdate /usr/local/bin/fuel-update-with-vpn.sh
-# Check later: sudo screen -r fuelupdate
-```
-
-**Note:** Systemd timer-based execution doesn't have this issue since it runs without an SSH session.
+**Common causes:**
+1. **Network timeout**: Check internet connection between UK PC and web server
+2. **Invalid API key**: Ensure `DEPLOY_API_KEY` matches in both UK PC and web server `.env` files
+3. **PHP upload limits**: Web server must allow uploads up to 20MB
+4. **SSL certificate error**: Ensure web server has valid SSL certificate
 
 ### Permission Denied
 ```bash
@@ -470,7 +474,7 @@ file_server {
 
 - `README.md` - User-facing quick start guide
 - `INSTALL.md` - Detailed installation and deployment guide
-- `Docs/` - gov.uk Fuel Finder API documentation
+- `Docs/` - Documentation including gov.uk Fuel Finder API docs
 
 ## Browser Support
 

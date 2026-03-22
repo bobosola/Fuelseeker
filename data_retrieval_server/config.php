@@ -1,6 +1,6 @@
 <?php
 /**
- * Configuration file for Fuel Finder (Web Server)
+ * Configuration file for Fuel Finder (UK PC)
  * 
  * Loads API credentials from .secrets file and defines constants.
  */
@@ -39,6 +39,8 @@ foreach ($lines as $line) {
 }
 
 // Define constants directly from parsed values
-define('OS_API_KEY', $secrets['OS_API_KEY'] ?? '');
-define('OS_API_SECRET', $secrets['OS_API_SECRET'] ?? '');
+define('FUEL_CLIENT_ID', $secrets['FUEL_CLIENT_ID'] ?? '');
+define('FUEL_CLIENT_SECRET', $secrets['FUEL_CLIENT_SECRET'] ?? '');
 define('DEPLOY_API_KEY', $secrets['DEPLOY_API_KEY'] ?? '');
+define('DEPLOY_URL', $secrets['DEPLOY_URL'] ?? 'https://fuelseeker.net/scripts/db_deploy.php');
+define('USE_GZIP', ($secrets['USE_GZIP'] ?? 'true') !== 'false'); // Default true

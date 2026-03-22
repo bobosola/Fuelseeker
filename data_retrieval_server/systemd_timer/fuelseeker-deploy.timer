@@ -1,5 +1,5 @@
 [Unit]
-Description=Run FuelSeeker update 3 times daily
+Description=Run FuelSeeker deployment 3 times daily
 
 [Timer]
 # Run at 06:00, 14:00, and 22:00 (every 8 hours)
@@ -8,8 +8,8 @@ OnCalendar=*-*-* 06:00:00
 OnCalendar=*-*-* 14:00:00
 OnCalendar=*-*-* 22:00:00
 
-# Add a random delay up to 5 minutes to avoid server overload
-RandomizedDelaySec=5m
+# Add a random delay up to 10 minutes to avoid API rate limits
+RandomizedDelaySec=10m
 
 # Ensure it runs if system was off at scheduled time
 Persistent=true

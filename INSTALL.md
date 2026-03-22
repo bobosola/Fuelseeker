@@ -8,17 +8,17 @@ This application uses a local SQLite database to cache fuel station data for fas
 
 ### 1. Install Files
 
-Upload all files to your web server (e.g., `/var/www/fuel/` ).
+Upload all files to your web server (e.g., `/var/www/fuelseeker/` ).
 
 **IMPORTANT: API Credentials**
 This application requires API credentials that are NOT included in the repository for security.
 
-1. Copy `.env.example` to `.env`:
+1. Copy `.secrets.example` to `.secrets`:
    ```bash
-   cp .env.example .env
+   cp scripts/.secrets.example scripts/.secrets
    ```
 
-2. Edit `.env` and add your API credentials:
+2. Edit `scripts/.secrets` and add your API credentials:
    ```bash
    # Fuel Finder API (from https://www.fuel-finder.service.gov.uk)
    FUEL_CLIENT_ID=your_client_id_here
@@ -29,10 +29,10 @@ This application requires API credentials that are NOT included in the repositor
    OS_API_SECRET=your_api_secret_here
    ```
 
-3. Ensure `.env` is NOT committed to Git:
+3. Ensure `.secrets` is NOT committed to Git:
    ```bash
    git status
-   # .env should NOT appear (it's in .gitignore)
+   # .secrets should NOT appear (it's in `.gitignore`)
    ```
 
 ### 2. Create Data Directory
@@ -115,6 +115,24 @@ https://your-domain.com/
 The fuel prices change throughout the day. The database is updated 3x daily at 06:00, 14:00, and 22:00 for better price accuracy.
 
 **⚠️ IMPORTANT**: The gov.uk Fuel Finder API is only accessible from UK IP addresses. If your server is outside the UK (e.g., Germany, US, etc.), the API will block requests with HTTP 403.
+
+### Recommended: UK PC Deployment (New)
+
+The recommended approach is to use a UK-based PC to download the data and deploy it to your web server via HTTPS. This avoids VPN complications entirely.
+
+See [DEPLOYMENT_PLAN.md](DEPLOYMENT_PLAN.md) and `data_retrieval_server/README.md` for setup instructions.
+
+**Quick Setup:**
+1. Copy `data_retrieval_server/` to a UK PC
+2. Configure `data_retrieval_server/.secrets` with API credentials
+3. Run `php deploy_to_remote_server.php`
+4. Set up cron/systemd timer for automatic updates
+
+---
+
+### Legacy Options (VPN-based - Not Recommended)
+
+The following options use VPN on the web server itself. These are kept for reference but the UK PC method above is preferred.
 
 ### Option 1: Manual Copy from Local Machine (Simplest)
 
@@ -582,6 +600,16 @@ readlink /var/www/fuelseeker.net/data/fuel_data.db
 
 ### Check Last Update Time
 
+**For UK PC deployment:**
+```bash
+# Check deployment status
+curl "https://your-domain.com/scripts/db_deploy.php?action=status"
+
+# View UK PC logs
+tail -f /path/to/fuelseeker/logs/deploy.log
+```
+
+**Legacy VPN method:**
 ```bash
 curl https://your-domain.com/scripts/local_api.php?action=status
 ```
@@ -598,13 +626,68 @@ tail /path/to/fuel/data/update_error.log
 
 ### Manual Update
 
-If you need to force an update:
+**For UK PC deployment:**
+```bash
+cd /path/to/data_retrieval_server
+php deploy_to_remote_server.php
+```
 
+**Legacy VPN method:**
 ```bash
 sudo /usr/local/bin/fuel-update-with-vpn.sh
 ```
 
 ### Common Issues
+
+#### UK PC Deployment Issues
+
+##### 1. "Could not find .secrets file"
+
+**Cause**: The `.secrets` file is missing from `data_retrieval_server/`.
+
+**Fix**: 
+```bash
+cd data_retrieval_server/
+cp .secrets.example .secrets
+# Edit .secrets and add your credentials
+```
+
+##### 2. "Invalid or missing deployment key"
+
+**Cause**: The `DEPLOY_API_KEY` on the UK PC doesn't match the web server.
+
+**Fix**: Ensure both files have the same 64-character key:
+- UK PC: `data_retrieval_server/.secrets`
+- Web server: `scripts/.secrets`
+
+Generate a new key:
+```bash
+openssl rand -hex 32
+```
+
+##### 3. "File too large" or "upload_max_filesize"
+
+**Cause**: PHP upload limits on the web server are too low.
+
+**Fix**: Update `php.ini` on the web server:
+```ini
+post_max_size = 20M
+upload_max_filesize = 20M
+```
+
+Then restart PHP-FPM/web server.
+
+##### 4. "cURL error" or timeout during upload
+
+**Cause**: Network issues between UK PC and web server.
+
+**Fix**: 
+- Check internet connectivity on both ends
+- Verify the `DEPLOY_URL` is correct
+- Check firewall rules on web server
+- The script will retry automatically (3 attempts)
+
+#### Legacy VPN Issues (Not Recommended)
 
 #### 1. "Database not initialized" Error
 
@@ -785,7 +868,7 @@ fuel/
 │   ├── token.php           (644)
 │   ├── os_token.php        (644)
 │   └── api_proxy.php       (644)
-│   └── .env      (644)
+│   └── .secrets  (644)
 ├── css/                    (755)
 ├── js/                     (755)
 ├── index.html              (644)
@@ -807,7 +890,7 @@ fuel/
 
 3. **HTTPS**: Always use HTTPS in production to protect user location data.
 
-4. **Caddy Web Server**: Unlike Apache/nginx, Caddy does NOT hide dotfiles by default. This could expose your `.env` file containing API credentials. Add this to your Caddyfile:
+4. **Caddy Web Server**: Unlike Apache/nginx, Caddy does NOT hide dotfiles by default. This could expose your `.secrets` file containing API credentials. Add this to your Caddyfile:
    ```caddy
    file_server {
        hide .*
@@ -816,7 +899,7 @@ fuel/
    Or specifically hide sensitive files:
    ```caddy
    file_server {
-       hide .env .git .gitignore
+       hide .secrets .git .gitignore
    }
    ```
 
@@ -864,8 +947,7 @@ For custom installations or testing different paths, use environment variables:
 # Custom paths
 FUELSEEKER_SCRIPT_DIR=/custom/scripts FUELSEEKER_DATA_DIR=/custom/data php update_data_streaming.php
 
-# Live server testing from local machine
-FUELSEEKER_SCRIPT_DIR=/var/www/fuelseeker.net/scripts FUELSEEKER_DATA_DIR=/var/www/fuelseeker.net/data php not_for_website/update_data_streaming.php
+# Note: update_data_streaming.php is no longer used. Use deploy_to_remote_server.php on the UK PC instead.
 ```
 
 The script will output which path detection method it's using when run.
@@ -876,5 +958,6 @@ The script will output which path detection method it's using when run.
 
 - **Mar 2026**: Added smart path detection to update_data_streaming.php
 - **Feb 2026**: Added geolocation workaround documentation for non-UK servers
+- **Mar 2026**: Changed from .env to .secrets for configuration files
 - **Feb 2026**: Updated config.php to support .env file in scripts/ directory
 - **Feb 2026**: Fixed domain whitelisting for os_token.php and token.php
