@@ -6,7 +6,7 @@
  * Designed to run on a UK-based PC (no VPN needed for Fuel Finder API).
  * 
  * Usage:
- *   php deploy_to_hetzner.php
+ *   php deploy_to_remote_server.php
  */
 
 // Security: Only allow CLI access
