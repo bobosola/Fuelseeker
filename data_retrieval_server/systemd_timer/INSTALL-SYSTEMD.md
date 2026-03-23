@@ -76,7 +76,7 @@ sudo systemctl list-timers fuelseeker-deploy.timer
 sudo systemctl status fuelseeker-deploy.service
 
 # View deployment logs
-tail -f ~/fuelseeker/logs/deploy.log
+tail -f ~/fuelseeker/data/logs/deploy.log
 
 # View systemd logs
 sudo journalctl -u fuelseeker-deploy.service -f
@@ -89,7 +89,7 @@ sudo journalctl -u fuelseeker-deploy.service -f
 sudo systemctl start fuelseeker-deploy.service
 
 # Or run directly
-cd /path/to/data_retrieval_server
+cd ~/fuelseeker
 php deploy_to_remote_server.php
 ```
 
@@ -97,7 +97,7 @@ php deploy_to_remote_server.php
 
 ### "Failed to get OAuth token"
 - Ensure the PC has a UK IP address
-- Check `data_retrieval_server/.secrets` has valid credentials
+- Check `~/fuelseeker/.secrets` has valid credentials
 
 ### "Invalid or missing deployment key"
 - Ensure `DEPLOY_API_KEY` in `.secrets` matches the web server
