@@ -8,7 +8,7 @@ Fuelseeker.net is a fast, lightweight web application for finding fuel stations 
 - Zero external dependencies for runtime (no npm, webpack, etc.)
 - Pure vanilla JavaScript (ES9/ES2018+) with ES6 modules
 - Plain CSS3 with CSS variables
-- PHP 7.4+ backend for API proxying and database management
+- PHP 7.4+ backend for database deployment and local API queries
 - SQLite for local data caching
 - **Split architecture**: Data retrieved by UK PC, deployed to web server via HTTPS
 
@@ -261,29 +261,20 @@ js/index-202603011751.js
 | **Version tracking** | Timestamps show exactly when each file was last modified |
 | **Easy rollback** | Keep old versions or revert to previous timestamps if needed |
 
-#### Path Detection for Update Script
+#### Deployment Configuration
 
-The `update_data_streaming.php` script uses smart path detection:
+The `deploy_to_remote_server.php` script uses the `DEPLOY_URL` constant from `config.php` (loaded from `.secrets`):
 
-```php
-// Priority order:
-// 1. Environment variables (FUELSEEKER_SCRIPT_DIR, FUELSEEKER_DATA_DIR)
-// 2. Auto-detection based on __DIR__ (works on both local and live)
-// 3. Fallback to hardcoded local paths
-```
-
-**Usage examples:**
 ```bash
-# UK PC deployment (recommended)
-cd data_retrieval_server/
+# Default deployment (uses DEPLOY_URL from .secrets or default)
 php deploy_to_remote_server.php
 
-# With custom deploy URL
+# Override via environment variable
 DEPLOY_URL=https://your-domain.com/scripts/db_deploy.php \
 php deploy_to_remote_server.php
 ```
 
-See `INSTALL.md` for more details on path configuration.
+See `data_retrieval_server/README.md` for full setup instructions.
 
 ## Code Style Guidelines
 
@@ -485,4 +476,6 @@ file_server {
 
 ## License
 
-This project is provided as-is for educational purposes. Fuel price data is Crown copyright under Open Government Licence v3.0.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Data Attribution:** Fuel price data is Crown copyright, provided by the UK government under the Open Government Licence v3.0.
