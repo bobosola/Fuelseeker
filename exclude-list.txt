@@ -1,7 +1,7 @@
 .*
 *.md
 exclude-list.txt
-/stats
+stats-*
 /Docs
 /data
 /data_retrieval_server
