@@ -244,7 +244,7 @@ js/index-202603011751.js
    sed -i 's/utils-20260206143452/utils-202603212044/g' map.html
    
    # Update JS imports
-   sed -i 's/utils-20260206143452/utils-202603212044/g' js/index-20260324090000.js js/map-202603212044.js
+   sed -i 's/utils-20260206143452/utils-202603212044/g' js/index-20260324120000.js js/map-202603212044.js
    ```
 
 4. **Verify no old references remain:**
