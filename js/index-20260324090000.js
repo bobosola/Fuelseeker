@@ -18,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSearch = document.getElementById('btnSearch');
     const btnLocateMe = document.getElementById('btnLocateMe');
     
+    // Reset loading state (in case user navigated back from map page)
+    showLoading('loadingIndicator', false);
+    hideError('errorMessage');
+    
     // Load last update time
     loadLastUpdated();
     
