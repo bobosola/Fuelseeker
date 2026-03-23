@@ -57,11 +57,11 @@ fuel/
 │   └── utils-*.js          # Utility functions (distance calc, formatting)
 ├── scripts/                # PHP backend (web accessible)
 │   ├── db_deploy.php       # Database deployment endpoint (receives from UK PC)
-│   ├── config.php          # Configuration loader (.env file support)
+│   ├── config.php          # Configuration loader (.secrets file support)
 │   ├── local_api.php       # Fast local API endpoints (SQLite queries)
 │   ├── os_token.php        # Ordnance Survey OAuth proxy
 │   ├── token.php           # CSRF token handler
-│   └── .env                # API credentials (gitignored)
+│   └── .secrets            # API credentials (gitignored)
 ├── data/                   # SQLite database (auto-deployed, gitignored)
 │   ├── fuel_data.db        # Symlink to active database file
 │   ├── fuel_data.db.v1     # Actual database file (alternating)
@@ -71,7 +71,7 @@ fuel/
 │   ├── deploy_to_remote_server.php  # Main deployment script
 │   ├── config.php          # Configuration loader
 │   ├── schema.sql          # Database schema
-│   ├── .env.example        # Example environment file
+│   ├── .secrets.example    # Example secrets file
 │   └── README.md           # UK PC setup instructions
 ├── Docs/                   # Documentation
 │   ├── fuel API/           # gov.uk Fuel Finder API documentation
@@ -82,7 +82,7 @@ fuel/
 
 ## Configuration
 
-### Environment Variables (`.env` file)
+### Secret Configuration (`.secrets` file)
 
 Create `.secrets` in the `scripts/` directory (NOT in git):
 
@@ -123,7 +123,7 @@ This project has **no build process**. Files are deployed as-is to the web serve
 ### Initial Setup
 
 1. **Upload files** to web server (e.g., `/var/www/fuel/`)
-2. **Create `.env` file** in `scripts/` with API credentials
+2. **Create `.secrets` file** in `scripts/` with API credentials
 3. **Create data directory**:
    ```bash
    mkdir data
@@ -157,7 +157,7 @@ UK PC (Home/Office)          Web Server (Any location)
 
 **UK PC Setup:**
 1. Copy `data_retrieval_server/` files to a UK-based PC
-2. Configure `data_retrieval_server/.env` with API credentials
+2. Configure `data_retrieval_server/.secrets` with API credentials
 3. Run `php deploy_to_remote_server.php` to test
 4. Set up cron/systemd timer for automatic updates (3x daily recommended)
 
@@ -244,7 +244,7 @@ js/index-202603011751.js
    sed -i 's/utils-20260206143452/utils-202603212044/g' map.html
    
    # Update JS imports
-   sed -i 's/utils-20260206143452/utils-202603212044/g' js/index-20260226140500.js js/map-202603212044.js
+   sed -i 's/utils-20260206143452/utils-202603212044/g' js/index-20260324090000.js js/map-202603212044.js
    ```
 
 4. **Verify no old references remain:**
@@ -342,7 +342,7 @@ Example:
 ## Security Considerations
 
 ### API Credentials
-- **NEVER** commit `.env` to Git (it's in `.gitignore`)
+- **NEVER** commit `.secrets` to Git (it's in `.gitignore`)
 - API credentials are stored server-side only in PHP files
 - PHP scripts validate Referer/Origin headers
 - CSRF tokens required for sensitive operations
@@ -441,7 +441,7 @@ php deploy_to_remote_server.php
 ### "Failed to get OAuth token" / HTTP 403
 The UK PC cannot access the gov.uk Fuel Finder API. Ensure:
 - The PC is located in the UK (or using a UK VPN)
-- API credentials in `data_retrieval_server/.env` are correct
+- API credentials in `data_retrieval_server/.secrets` are correct
 
 ### Deployment Failed / Upload Error
 
@@ -452,7 +452,7 @@ tail -f data/logs/deploy.log
 
 **Common causes:**
 1. **Network timeout**: Check internet connection between UK PC and web server
-2. **Invalid API key**: Ensure `DEPLOY_API_KEY` matches in both UK PC and web server `.env` files
+2. **Invalid API key**: Ensure `DEPLOY_API_KEY` matches in both UK PC and web server `.secrets` files
 3. **PHP upload limits**: Web server must allow uploads up to 20MB
 4. **SSL certificate error**: Ensure web server has valid SSL certificate
 
@@ -466,7 +466,7 @@ chmod -R 755 /path/to/fuel/data
 Caddy does NOT hide dotfiles by default. Add to Caddyfile:
 ```caddy
 file_server {
-    hide .env .git .gitignore
+    hide .secrets .git .gitignore
 }
 ```
 

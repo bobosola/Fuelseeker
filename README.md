@@ -185,7 +185,9 @@ curl https://fuelseeker.net/scripts/local_api.php?action=status
 
 ## License
 
-This project is provided as-is for educational purposes. The fuel price data is provided by the UK government under the Open Government Licence v3.0.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Data Attribution:** The fuel price data is Crown copyright, provided by the UK government under the Open Government Licence v3.0.
 
 ---
 

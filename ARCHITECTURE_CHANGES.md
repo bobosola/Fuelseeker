@@ -107,7 +107,7 @@ The old `not_for_website/` directory has been removed. Its contents were:
    ```bash
    # Upload website files
    # Create data/ directory
-   # Configure scripts/.env with OS API credentials
+   # Configure scripts/.secrets with OS API credentials
    # Ensure DEPLOY_API_KEY is set
    ```
 
@@ -178,7 +178,7 @@ The following files/directories are no longer needed and can be removed:
 ### UK PC Issues
 
 **"Could not find .env file"**
-- Ensure `.env` exists in `data_retrieval_server/` directory
+- Ensure `.secrets` exists in `data_retrieval_server/` directory
 - Check file permissions
 
 **"Failed to get OAuth token"**

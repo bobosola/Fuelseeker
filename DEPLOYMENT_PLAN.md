@@ -156,7 +156,7 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
    openssl rand -hex 32
    ```
 
-2. Add to `/var/www/fuelseeker.net/scripts/.env`:
+2. Add to `/var/www/fuelseeker.net/scripts/.secrets`:
    ```bash
    DEPLOY_API_KEY=abc123...def456
    ```

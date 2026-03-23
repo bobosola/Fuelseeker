@@ -25,6 +25,8 @@ The gov.uk Fuel Finder API is restricted to UK IP addresses. If your web server 
 
 **Compression:** The database is automatically gzip-compressed before upload, reducing transfer size by ~60-70% (typically 13MB → 4-5MB). This is enabled by default but can be disabled in `.secrets` if needed.
 
+**Performance:** The entire deployment process (API token → database build → upload) completes in under 30 seconds. This is significantly faster than the old VPN-based approach which typically took several minutes due to VPN connection overhead and uncompressed uploads.
+
 ## Setup Instructions
 
 ### 1. Prerequisites (UK PC)
@@ -141,7 +143,7 @@ crontab -e
 Add:
 ```
 # FuelSeeker data update - 06:00, 14:00, 22:00
-0 6,14,22 * * * cd /home/user/fuelseeker/data_retrieval_server && php deploy_to_remote_server.php >> ../logs/deploy.log 2>&1
+0 6,14,22 * * * cd /home/user/fuelseeker && php deploy_to_remote_server.php >> data/logs/deploy.log 2>&1
 ```
 
 ## Troubleshooting
