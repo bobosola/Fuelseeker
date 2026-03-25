@@ -2,7 +2,7 @@
 /**
  * Fuel Finder API OAuth Token Proxy
  * 
- * API credentials are loaded from environment variables (see .env.example)
+ * API credentials are loaded from environment variables (see .secrets.example)
  */
 
 session_start();
