@@ -1,7 +1,7 @@
-# FuelSeeker Deployment Plan: UK PC to Hetzner Server
+# FuelSeeker Deployment Plan: UK PC to Remote Web Server
 
 ## Goal
-Replace unreliable VPN-based API access with a dedicated UK-based PC that downloads fuel data and deploys it to the live Hetzner server via HTTPS.
+Replace unreliable VPN-based API access with a dedicated UK-based PC that downloads fuel data and deploys via HTTPS to a webserver outside the UK. This is required because the fuel data is geo-blocked for non-UK users.
 
 ## Architecture Overview
 
@@ -17,7 +17,7 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
   Builds SQLite DB                            (Atomic swap)
 ```
 
-## Why HTTPS Upload (Option 2)
+## Why HTTPS Upload (as opposed to scp, rsync etc.)
 
 **Pros:**
 - No SSH key passphrase complications for automation
@@ -28,7 +28,6 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
 - Uses existing project's PHP infrastructure
 
 **Cons:**
-- ~13MB upload takes 10-15 seconds on typical UK broadband (acceptable)
 - No resume capability (must retry full upload on failure)
 - Requires PHP upload limit configuration on server
 
@@ -52,7 +51,7 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
 - Returns JSON success/error response
 
 **Server Configuration Changes:**
-- Add to `.env`: `DEPLOY_API_KEY=<random-64-char-hex>`
+- Add to `.secrets`: `DEPLOY_API_KEY=<random-64-char-hex>`
 - Set PHP upload limits:
   - `post_max_size = 20M`
   - `upload_max_filesize = 20M`
@@ -63,7 +62,7 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
 **File:** `data_retrieval_server/deploy_to_remote_server.php`
 - Builds database
 - Determines which version was just built (v1 or v2)
-- Reads API key from `.env`
+- Reads API key from `.secrets`
 - Uploads via HTTPS POST with curl:
   - Uses `CURLFile` for multipart upload
   - Sets 120-second timeout
@@ -73,8 +72,8 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
   - Failure: retries up to 3 times with exponential backoff
   - Logs all attempts locally
 
-**File:** `~/.env`
-- Contains the same 64-character API key as server's `.env`
+**File:** `~/.secrets`
+- Contains the same 64-character API key as server's `.secrets`
 
 ## Security Considerations
 
@@ -86,7 +85,7 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
    ```
 
 2. **API Key Storage:**
-   - Server & UK PC: `.env` file (existing, already secure)
+   - Server & UK PC: `.secrets` file (existing, already secure)
 
 3. **HTTPS Required:**
    - Never send API key or database over HTTP
@@ -181,7 +180,7 @@ Replace unreliable VPN-based API access with a dedicated UK-based PC that downlo
 
 2. Clone/pull fuelseeker repository
 
-3. Add to local PC script folder `.env`:
+3. Add to local PC script folder `.secrets`:
    ```bash
    DEPLOY_API_KEY=abc123...def456
    ```

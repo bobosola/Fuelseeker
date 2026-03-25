@@ -1,19 +1,19 @@
 # Fuelseeker.net
 
-A fast web application to find fuel stations and compare petrol and diesel prices across the UK.
+A web application to find fuel stations and compare petrol and diesel prices across the UK.
 
 ## Features
 
-- **⚡ Lightning Fast**: Uses local SQLite database - no waiting for API calls
-- **📍 Location Search**: Find stations by postcode, town name, or current location
-- **🗺️ Interactive Map**: OpenStreetMap with colour-coded markers (green=open, red=closed)
-- **💰 Price Comparison**: Sortable table showing diesel and petrol prices
-- **🎯 Smart Radius**: Shows all stations within 10 miles of your location
-- **📱 Location Picker**: Choose the right location when multiple matches exist
+- **Fast**: Uses local SQLite database - no waiting for API calls
+- **Location Search**: Find stations by postcode, town name, or current location
+- **Interactive Map**: OpenStreetMap with colour-coded markers (green=open, red=closed)
+- **Price Comparison**: Sortable table showing diesel and petrol prices
+- **Smart Radius**: Shows all stations within 20 miles of your location
+- **Location Picker**: Choose the right location when multiple matches exist
 
 ## How It Works
 
-Unlike typical apps that query an API every time you search, Fuelseeker.net:
+Unlike apps that query an API every time you search, Fuelseeker.net:
 
 1. **Downloads all UK fuel station data** (~7,000 stations) to a local SQLite database
 2. **Updates 3x daily** via automated deployment from a UK-based PC to keep prices current
@@ -25,7 +25,7 @@ The site uses a split architecture:
 - **Web Server** (any location): Serves the website and hosts the SQLite database
 - **UK PC** (`data_retrieval_server/`): Downloads fuel data from the UK-only gov.uk API and deploys it to the web server via HTTPS
 
-This avoids VPN complications when the web server is outside the UK.
+This avoids geo-blocking/VPN complications when the web server is outside the UK.
 
 ## Quick Start
 
@@ -73,8 +73,7 @@ The UK PC should run this automatically via cron or systemd timer.
 ## Detailed Installation
 
 See **[INSTALL.md](INSTALL.md)** for complete installation instructions including:
-- cPanel setup
-- VPS/systemd configuration
+- systemd configuration
 - Troubleshooting
 - File permissions
 - Security notes
@@ -190,5 +189,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Data Attribution:** The fuel price data is Crown copyright, provided by the UK government under the Open Government Licence v3.0.
 
 ---
-
-**Made with ⛽ in the UK**
