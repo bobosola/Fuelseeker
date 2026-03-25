@@ -6,7 +6,7 @@ Fuelseeker.net is a fast, lightweight web application for finding fuel stations 
 
 **Key Characteristics:**
 - Zero external dependencies for runtime (no npm, webpack, etc.)
-- Pure vanilla JavaScript (ES9/ES2018+) with ES6 modules
+- Pure vanilla JavaScript (ES2017+) with ES6 modules
 - Plain CSS3 with CSS variables
 - PHP 7.4+ backend for database deployment and local API queries
 - SQLite for local data caching
@@ -22,7 +22,7 @@ This avoids VPN complications when the web server is outside the UK.
 
 ### Frontend
 - **HTML5** - Semantic markup, single-page static files
-- **JavaScript** - Vanilla ES9 (ES2018+), ES6 modules with import maps
+- **JavaScript** - Vanilla ES2017+, ES6 modules with import maps
 - **CSS3** - Plain CSS with custom properties (variables)
 - **Leaflet.js** - Interactive maps (loaded from CDN)
 - **Proj4js** - Coordinate system conversion for UK National Grid (loaded from CDN)
@@ -208,7 +208,7 @@ All CSS and JS files include a timestamp in their filename:
 ```
 css/styles-202603011751.css       # Format: YYYYMMDDHHMM
 js/utils-202603212044.js
-js/map-202603212044.js
+js/map-202603240033.js
 js/index-202603011751.js
 ```
 
@@ -285,7 +285,7 @@ See `data_retrieval_server/README.md` for full setup instructions.
 - Use async/await for asynchronous code
 - Use template literals for string interpolation
 - Add JSDoc comments for function documentation
-- Target browsers from 2020 onwards (ES9/ES2018+)
+- Target browsers from 2017 onwards (ES2017+)
 
 Example:
 ```javascript

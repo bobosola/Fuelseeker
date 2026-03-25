@@ -131,15 +131,16 @@ async function loadAndDisplayStations() {
             SEARCH_RADIUS_MILES
         );
         
-        stations = stations.map(station => ({
-            ...station,
-            distance: calculateDistance(
-                userLocation.lat,
-                userLocation.lng,
-                parseFloat(station.location.latitude),
-                parseFloat(station.location.longitude)
-            )
-        }));
+        stations = stations.map(function(station) {
+            return Object.assign({}, station, {
+                distance: calculateDistance(
+                    userLocation.lat,
+                    userLocation.lng,
+                    parseFloat(station.location.latitude),
+                    parseFloat(station.location.longitude)
+                )
+            });
+        });
         
         sortStations('diesel', 'asc');
         displayMarkers();

@@ -79,7 +79,7 @@ See **[INSTALL.md](INSTALL.md)** for complete installation instructions includin
 
 ## Technology Stack
 
-- **Frontend**: HTML5, Vanilla JavaScript (ES9), CSS3, Leaflet.js
+- **Frontend**: HTML5, Vanilla JavaScript (ES2017), CSS3, Leaflet.js
 - **Backend**: PHP 7.4+
 - **Database**: SQLite (local cache)
 - **Data Source**: gov.uk Fuel Finder API
