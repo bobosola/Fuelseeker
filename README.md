@@ -8,16 +8,15 @@ A web application to find fuel stations and compare petrol and diesel prices acr
 - **Location Search**: Find stations by postcode, town name, or current location
 - **Interactive Map**: OpenStreetMap with colour-coded markers (green=open, red=closed)
 - **Price Comparison**: Sortable table showing diesel and petrol prices
-- **Smart Radius**: Shows all stations within 20 miles of your location
-- **Location Picker**: Choose the right location when multiple matches exist
+- **Smart Radius**: Shows all stations within 20 miles of requested location
+- **Location Picker**: Location choice offered when multiple matches exist
 
 ## How It Works
 
-Unlike apps that query an API every time you search, Fuelseeker.net:
-
+Fuelseeker.net:
 1. **Downloads all UK fuel station data** (~7,000 stations) to a local SQLite database
-2. **Updates 3x daily** via automated deployment from a UK-based PC to keep prices current
-3. **Queries locally** for instant results - no network delays!
+2. **Updates several times daily** via automated deployment of the database to the web server
+3. **Queries locally** from the SQLite database on the webserver  for instant results
 
 ### Architecture
 
