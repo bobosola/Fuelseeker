@@ -469,9 +469,10 @@ file_server {
 
 ## Browser Support
 
-- Chrome/Edge 80+ (2020+)
-- Firefox 75+ (2020+)
-- Safari 13.1+ (2020+)
+- Chrome 55+ (2016+)
+- Firefox 52+ (2017+)
+- Safari 10.1+ (2017+)
+- Edge 15+ (2017+)
 - No IE support required
 
 ## License
