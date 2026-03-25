@@ -22,8 +22,8 @@ require_once 'config.php';
 // Configuration
 // ============================================================================
 
-// DEPLOY_URL is now defined in config.php from .env file
-// Falls back to default if not set in .env
+// DEPLOY_URL is now defined in config.php from .secrets file
+// Falls back to default if not set in .secrets
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -66,11 +66,11 @@ if (!is_dir($logsDir)) {
 
 function logMsg($message, $level = 'INFO') {
     global $logsDir;
+    
     $line = '[' . date('Y-m-d H:i:s') . '] [' . $level . '] ' . $message . "\n";
     echo $line;
-    flush();
     
-    // Also write to deploy log
+    // Also write to deploy log (suppress errors if directory not writable)
     @file_put_contents($logsDir . '/deploy.log', $line, FILE_APPEND | LOCK_EX);
 }
 
@@ -116,14 +116,12 @@ function buildDatabase($dataDir, $tempDir) {
     }
     
     // Get OAuth token
-    logMsg('[1/4] Getting OAuth token...');
-    logMsg('Note: The Fuel Finder API is geo-restricted to UK IP addresses.');
-    logMsg('If you get HTTP 403, your IP may be blocked (non-UK location).');
+    logMsg('[1/4] Authenticating with Fuel Finder API...');
     $token = getFuelToken($fuelApiBase);
     if (!$token) {
-        throw new Exception('Failed to get OAuth token from Fuel Finder API. Ensure you are running from a UK IP address.');
+        throw new Exception('Failed to get OAuth token. Ensure you are running from a UK IP address.');
     }
-    logMsg('Got token');
+    logMsg('Authenticated');
     
     // Stream stations to CSV
     logMsg('[2/4] Downloading stations to CSV...');
@@ -196,9 +194,7 @@ function getFuelToken($fuelApiBase) {
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     
-    // Debug: log request details
-    logMsg('OAuth request to: ' . $fuelApiBase . '/oauth/generate_access_token');
-    logMsg('Client ID: ' . substr(FUEL_CLIENT_ID, 0, 8) . '...');
+    // Request OAuth token
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -219,15 +215,8 @@ function getFuelToken($fuelApiBase) {
     
     $data = json_decode($response, true);
     
-    // Debug: log raw response structure
-    logMsg('OAuth response structure: ' . print_r(array_keys($data ?? []), true));
-    
     // The API returns nested structure: data.data.access_token
     $token = $data['data']['data']['access_token'] ?? $data['data']['access_token'] ?? $data['access_token'] ?? null;
-    
-    if ($token) {
-        logMsg('Token received: ' . substr($token, 0, 20) . '...');
-    }
     
     return $token;
 }
@@ -272,7 +261,6 @@ function streamStationsToCsv($fuelApiBase, $token, $csvPath) {
         
         // Check for 404 - means no more batches
         if ($httpCode === 404) {
-            logMsg("No more station batches (404 at batch $batchNumber)");
             break;
         }
         
@@ -284,7 +272,6 @@ function streamStationsToCsv($fuelApiBase, $token, $csvPath) {
         $data = json_decode($response, true);
         // The PFS endpoint returns an array directly, not wrapped in 'stations'
         if (empty($data) || !is_array($data)) {
-            logMsg("No more station data (empty response at batch $batchNumber)");
             break;
         }
         
@@ -383,7 +370,6 @@ function streamPricesToCsv($fuelApiBase, $token, $csvPath) {
         
         // Check for 404 - means no more batches
         if ($httpCode === 404) {
-            logMsg("No more price batches (404 at batch $batchNumber)");
             break;
         }
         
@@ -396,7 +382,6 @@ function streamPricesToCsv($fuelApiBase, $token, $csvPath) {
         
         // The fuel-prices endpoint returns an array directly, not wrapped in 'stations'
         if (empty($data) || !is_array($data)) {
-            logMsg("No more price data (empty response at batch $batchNumber)");
             break;
         }
         
@@ -497,8 +482,7 @@ function buildDatabaseWithCli($dbPath, $stationsCsv, $pricesCsv) {
 // ============================================================================
 
 function deployToServer($dbPath, $apiKey) {
-    logMsg('=== Starting Deployment ===');
-    logMsg('Target: ' . DEPLOY_URL);
+    logMsg('Deploying to ' . DEPLOY_URL);
     
     // Compress if enabled
     $uploadPath = $dbPath;
@@ -507,14 +491,13 @@ function deployToServer($dbPath, $apiKey) {
     
     if (USE_GZIP && extension_loaded('zlib')) {
         $compressedPath = $dbPath . '.gz';
-        logMsg('Compressing database...');
         
         $input = fopen($dbPath, 'rb');
-        $output = gzopen($compressedPath, 'wb9'); // Level 9 = max compression
+        $output = gzopen($compressedPath, 'wb9');
         
         if ($input && $output) {
             while (!feof($input)) {
-                gzwrite($output, fread($input, 1024 * 1024)); // 1MB chunks
+                gzwrite($output, fread($input, 1024 * 1024));
             }
             fclose($input);
             gzclose($output);
@@ -522,19 +505,19 @@ function deployToServer($dbPath, $apiKey) {
             $compressedSize = filesize($compressedPath);
             $savings = round((1 - $compressedSize / $originalSize) * 100, 1);
             logMsg("Compressed: " . round($originalSize / 1024 / 1024, 2) . " MB → " . 
-                   round($compressedSize / 1024 / 1024, 2) . " MB ($savings% reduction)");
+                   round($compressedSize / 1024 / 1024, 2) . " MB ($savings%)");
             
             $uploadPath = $compressedPath;
             $isCompressed = true;
         } else {
-            logMsg('Compression failed, using uncompressed file', 'WARN');
+            logMsg('Compression failed, using uncompressed', 'WARN');
             if (file_exists($compressedPath)) {
                 unlink($compressedPath);
             }
         }
     }
     
-    logMsg('Database: ' . basename($uploadPath) . ' (' . round(filesize($uploadPath) / 1024 / 1024, 2) . ' MB)');
+    logMsg('Uploading: ' . round(filesize($uploadPath) / 1024 / 1024, 2) . ' MB');
     
     $attempt = 0;
     $lastError = '';
@@ -548,7 +531,7 @@ function deployToServer($dbPath, $apiKey) {
             sleep($delay);
         }
         
-        logMsg("Upload attempt $attempt of " . MAX_RETRIES . "...");
+        logMsg("Upload attempt $attempt...");
         
         $ch = curl_init(DEPLOY_URL);
         
@@ -563,7 +546,7 @@ function deployToServer($dbPath, $apiKey) {
         
         $headers = [
             'X-Deploy-Key: ' . $apiKey,
-            'Expect: ' // Disable Expect: 100-continue header which can cause issues
+            'Expect: '
         ];
         
         if ($isCompressed) {
@@ -571,21 +554,13 @@ function deployToServer($dbPath, $apiKey) {
         }
         
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        
-        // Timeout settings
-        curl_setopt($ch, CURLOPT_TIMEOUT, UPLOAD_TIMEOUT);           // Total timeout
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);                // Connection timeout
-        curl_setopt($ch, CURLOPT_LOW_SPEED_TIME, 60);                // If speed drops below 1KB/s for 60s, timeout
-        curl_setopt($ch, CURLOPT_LOW_SPEED_LIMIT, 1024);             // 1KB/s minimum speed
-        
+        curl_setopt($ch, CURLOPT_TIMEOUT, UPLOAD_TIMEOUT);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_LOW_SPEED_TIME, 60);
+        curl_setopt($ch, CURLOPT_LOW_SPEED_LIMIT, 1024);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
-        
-        // Enable verbose logging for debugging
-        // curl_setopt($ch, CURLOPT_VERBOSE, true);
-        
-        logMsg("Starting upload (timeout: " . UPLOAD_TIMEOUT . "s)...");
         
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -599,7 +574,7 @@ function deployToServer($dbPath, $apiKey) {
         }
         
         if ($httpCode === 0) {
-            $lastError = 'Connection failed (timeout or network error)';
+            $lastError = 'Connection failed';
             logMsg($lastError, 'WARN');
             continue;
         }
@@ -607,10 +582,8 @@ function deployToServer($dbPath, $apiKey) {
         $data = json_decode($response, true);
         
         if ($httpCode === 200 && $data && $data['success']) {
-            logMsg('Deployment successful!', 'SUCCESS');
-            logMsg('Previous version: ' . ($data['previous_version'] ?? 'unknown'));
-            logMsg('New version: ' . ($data['new_version'] ?? 'unknown'));
-            logMsg('Server time: ' . ($data['timestamp'] ?? 'unknown'));
+            logMsg('Deployed: ' . ($data['new_version'] ?? 'unknown') . 
+                   ' (' . ($data['timestamp'] ?? 'unknown') . ')', 'SUCCESS');
             
             // Clean up compressed file if created
             if ($isCompressed && file_exists($uploadPath)) {
@@ -644,23 +617,20 @@ function deployToServer($dbPath, $apiKey) {
 // ============================================================================
 
 try {
-    logMsg('=== FuelSeeker UK PC Deployment ===');
-    logMsg('Data dir: ' . $dataDir);
+    logMsg('=== FuelSeeker Deployment ===');
     
     // Load and validate API credentials
     if (!defined('FUEL_CLIENT_ID') || empty(FUEL_CLIENT_ID)) {
-        throw new Exception('FUEL_CLIENT_ID not configured. Please check your .env file.');
+        throw new Exception('FUEL_CLIENT_ID not configured. Check .secrets file.');
     }
     if (!defined('FUEL_CLIENT_SECRET') || empty(FUEL_CLIENT_SECRET)) {
-        throw new Exception('FUEL_CLIENT_SECRET not configured. Please check your .env file.');
+        throw new Exception('FUEL_CLIENT_SECRET not configured. Check .secrets file.');
     }
     if (!defined('DEPLOY_API_KEY') || empty(DEPLOY_API_KEY)) {
-        throw new Exception('DEPLOY_API_KEY not configured. Please check your .env file.');
+        throw new Exception('DEPLOY_API_KEY not configured. Check .secrets file.');
     }
     
     $apiKey = DEPLOY_API_KEY;
-    logMsg('API credentials loaded successfully');
-    logMsg('Deploy API key: ' . strlen($apiKey) . ' chars');
     
     // Build database
     $buildResult = buildDatabase($dataDir, $tempDir);
@@ -669,10 +639,10 @@ try {
     $deployed = deployToServer($buildResult['dbPath'], $apiKey);
     
     if ($deployed) {
-        logMsg('=== Deployment Complete ===', 'SUCCESS');
+        logMsg('Done', 'SUCCESS');
         exit(0);
     } else {
-        logMsg('=== Deployment Failed ===', 'ERROR');
+        logMsg('Failed', 'ERROR');
         exit(1);
     }
     

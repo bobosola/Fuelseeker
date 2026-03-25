@@ -118,11 +118,22 @@ php deploy_to_remote_server.php
 
 Expected output:
 ```
-[2026-03-24 10:00:00] === Starting Deployment ===
-[2026-03-24 10:00:02] Downloaded 7167 stations
-[2026-03-24 10:00:15] Database built: fuel_data.db (12.5 MB)
-[2026-03-24 10:00:20] Upload successful (HTTP 200)
-[2026-03-24 10:00:20] === Deployment Complete ===
+[2026-03-25 11:27:26] [INFO] === FuelSeeker Deployment ===
+[2026-03-25 11:27:26] [INFO] === Starting Database Build ===
+[2026-03-25 11:27:26] [INFO] [1/4] Authenticating with Fuel Finder API...
+[2026-03-25 11:27:30] [INFO] Authenticated
+[2026-03-25 11:27:30] [INFO] [2/4] Downloading stations to CSV...
+[2026-03-25 11:27:42] [INFO] Downloaded 7463 stations
+[2026-03-25 11:27:42] [INFO] [3/4] Downloading prices to CSV...
+[2026-03-25 11:28:23] [INFO] Downloaded prices for 7411 stations
+[2026-03-25 11:28:23] [INFO] [4/4] Building database via SQLite CLI...
+[2026-03-25 11:28:23] [INFO] Database built: 13.29 MB
+[2026-03-25 11:28:23] [INFO] Deploying to https://fuelseeker.net/scripts/db_deploy.php
+[2026-03-25 11:28:24] [INFO] Compressed: 13.29 MB → 2.55 MB (80.8%)
+[2026-03-25 11:28:24] [INFO] Uploading: 2.55 MB
+[2026-03-25 11:28:24] [INFO] Upload attempt 1...
+[2026-03-25 11:28:24] [SUCCESS] Deployed: fuel_data.db.v2 (2026-03-25 11:28:24)
+[2026-03-25 11:28:24] [SUCCESS] Done
 ```
 
 ### 4. Verify Database on Web Server
