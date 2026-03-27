@@ -58,7 +58,7 @@ async function getOsToken() {
 export async function fetchStationsNearLocation(lat, lng, radiusMiles = 5) {
     console.log(`Fetching stations near ${lat}, ${lng} within ${radiusMiles} miles...`);
     
-    const url = `${LOCAL_API_BASE}?action=nearby&lat=${lat}&lng=${lng}&radius=${radiusMiles}&limit=100`;
+    const url = `${LOCAL_API_BASE}?action=nearby&lat=${lat}&lng=${lng}&radius=${radiusMiles}&limit=500`;
     
     const response = await fetch(url);
     

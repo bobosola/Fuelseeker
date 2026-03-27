@@ -12,7 +12,10 @@ require_once __DIR__ . '/config.php';
 // Generate Base64 auth string from environment variables
 $osAuthBase64 = base64_encode(OS_API_KEY . ':' . OS_API_SECRET);
 
-$allowedHosts = ['localhost', '127.0.0.1', 'fuelseeker.net', 'www.fuelseeker.net'];
+// Extract hostnames from ALLOWED_ORIGINS for CSRF validation
+$allowedHosts = array_map(function($origin) {
+    return parse_url($origin, PHP_URL_HOST) ?: $origin;
+}, ALLOWED_ORIGINS);
 
 function getAllHeadersSafe() {
     if (function_exists('getallheaders')) {

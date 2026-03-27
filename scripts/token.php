@@ -11,7 +11,10 @@ require_once __DIR__ . '/config.php';
 
 const TOKEN_URL = 'https://www.fuel-finder.service.gov.uk/api/v1/oauth/generate_access_token';
 
-$allowedHosts = ['localhost', '127.0.0.1', 'fuelseeker.net'];
+// Extract hostnames from ALLOWED_ORIGINS for CSRF validation
+$allowedHosts = array_map(function($origin) {
+    return parse_url($origin, PHP_URL_HOST) ?: $origin;
+}, ALLOWED_ORIGINS);
 
 function getAllHeadersSafe() {
     if (function_exists('getallheaders')) {

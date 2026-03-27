@@ -6,6 +6,8 @@
  * Much faster than querying the remote API.
  */
 
+require_once __DIR__ . '/config.php';
+
 const DB_PATH = __DIR__ . '/../data/fuel_data.db';
 
 // ============================================================================
@@ -13,17 +15,8 @@ const DB_PATH = __DIR__ . '/../data/fuel_data.db';
 // ============================================================================
 // This API should only be accessible from pages on the same domain.
 // We check the Origin/Referer header to block external requests.
+// Allowed origins are configured in .secrets file and loaded by config.php
 // ============================================================================
-
-$allowedOrigins = [
-    'https://fuelseeker.net',
-    'https://www.fuelseeker.net',
-    // Add localhost for development if needed:
-     'http://localhost:8085',
-     'http://127.0.0.1:8085',
-     'https://localhost:8085',
-     'https://127.0.0.1:8085',
-];
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $referer = $_SERVER['HTTP_REFERER'] ?? '';
@@ -31,7 +24,7 @@ $referer = $_SERVER['HTTP_REFERER'] ?? '';
 // Check if request is from an allowed page on our site
 // This blocks: external sites, direct browser access, curl without headers
 $isAllowed = false;
-foreach ($allowedOrigins as $allowed) {
+foreach (ALLOWED_ORIGINS as $allowed) {
     if (strpos($origin, $allowed) === 0 || strpos($referer, $allowed) === 0) {
         $isAllowed = true;
         break;
@@ -165,6 +158,9 @@ function getNearbyStations($db) {
     $radius = floatval($_GET['radius'] ?? 5); // miles
     $limit = intval($_GET['limit'] ?? 100);
     
+    // Clamp radius to reasonable range (1-30 miles)
+    $radius = max(1, min(30, $radius));
+    
     if ($lat === 0 || $lng === 0) {
         http_response_code(400);
         echo json_encode(['error' => 'lat and lng parameters required']);
@@ -172,8 +168,12 @@ function getNearbyStations($db) {
     }
     
     // Approximate degree conversion (rough for UK)
+    // At UK latitudes (~50-60°N), 1 degree longitude is smaller than 1 degree latitude
     $latDelta = $radius / 69.0; // 1 degree lat ≈ 69 miles
     $lngDelta = $radius / (69.0 * cos(deg2rad($lat)));
+    
+    // Cap lngDelta to prevent overflow near poles (shouldn't happen for UK)
+    $lngDelta = min($lngDelta, 10.0);
     
     $minLat = $lat - $latDelta;
     $maxLat = $lat + $latDelta;

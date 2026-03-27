@@ -99,9 +99,13 @@ OS_API_SECRET=your_api_secret_here
 
 # Deployment API key (must match UK PC)
 DEPLOY_API_KEY=your_deployment_key_here
+
+# CORS Allowed Origins (comma-separated)
+# Domains allowed to access the API. Add your dev URLs here.
+ALLOWED_ORIGINS=https://fuelseeker.net,https://othersite,https://localsite
 ```
 
-The `.secrets` file is automatically loaded by `scripts/config.php` which defines constants directly from the values.
+The `.secrets` file is automatically loaded by `scripts/config.php` which defines constants directly from the values. This centralizes CORS configuration and keeps private IPs out of Git.
 
 ### File Permissions
 
@@ -202,14 +206,16 @@ The streaming version writes data directly to CSV during API fetch, avoiding mem
 
 To ensure users always get the latest CSS and JavaScript files after updates, this project uses **timestamp-based cache busting**:
 
+**IMPORTANT:** Always use the ACTUAL current datetime from `date +%Y%m%d%H%M` - do not make up timestamps or copy examples.
+
 #### File Naming Convention
 
 All CSS and JS files include a timestamp in their filename:
 ```
-css/styles-202603011751.css       # Format: YYYYMMDDHHMM
-js/utils-202603212044.js
-js/map-202603240033.js
-js/index-202603011751.js
+css/styles-202603271253.css       # Format: YYYYMMDDHHMM (actual current datetime)
+js/utils-202603271253.js
+js/map-202603271253.js
+js/index-202603271253.js
 ```
 
 #### When to Update Timestamps
@@ -228,28 +234,28 @@ js/index-202603011751.js
 1. **Generate new timestamp:**
    ```bash
    date +%Y%m%d%H%M
-   # Output: 202603011751
+   # Output: 202603271253  <- Use the ACTUAL current datetime
    ```
 
 2. **Rename the modified file(s):**
    ```bash
-   mv css/styles-20260206143452.css css/styles-202603011751.css
-   mv js/utils-20260206143452.js js/utils-202603212044.js
+   mv css/styles-202603240100.css css/styles-202603271253.css
+   mv js/utils-202603240100.js js/utils-202603271253.js
    ```
 
 3. **Update all references** in HTML and JS files:
    ```bash
    # Update HTML files
-   sed -i 's/styles-20260206143452/styles-202603011751/g' index.html map.html about.html
-   sed -i 's/utils-20260206143452/utils-202603212044/g' map.html
+   sed -i 's/styles-202603240100/styles-202603271253/g' index.html map.html about.html
+   sed -i 's/utils-202603240100/utils-202603271253/g' map.html
    
    # Update JS imports
-   sed -i 's/utils-20260206143452/utils-202603212044/g' js/index-20260324120000.js js/map-202603212044.js
+   sed -i 's/utils-202603240100/utils-202603271253/g' js/index-202603271253.js js/map-202603271253.js
    ```
 
 4. **Verify no old references remain:**
    ```bash
-   grep -r "20260206143452" --include="*.html" --include="*.js" .
+   grep -r "202603240100" --include="*.html" --include="*.js" .
    ```
 
 #### Why This Approach?
@@ -275,6 +281,19 @@ php deploy_to_remote_server.php
 ```
 
 See `data_retrieval_server/README.md` for full setup instructions.
+
+## Features
+
+### Search Radius Control
+
+The map page includes a slider control that allows users to adjust the search radius:
+
+- **Default**: 10 miles
+- **Range**: 1 to 50 miles
+- **Persistence**: User's choice is saved in `sessionStorage` for the duration of the browser session
+- **Auto-zoom**: The map automatically scales to fit all found stations when the radius changes
+
+The radius control is implemented in `js/map-*.js` with styling in `css/styles-*.css`.
 
 ## Code Style Guidelines
 

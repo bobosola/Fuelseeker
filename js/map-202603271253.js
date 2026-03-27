@@ -6,7 +6,7 @@ import {
     fetchStationsNearLocation,
     searchLocation,
     getCurrentPosition
-} from './api-20260206143452.js';
+} from './api-202603271253.js';
 
 import {
     calculateDistance,
@@ -15,19 +15,27 @@ import {
     formatOpeningTimes,
     formatAddress,
     getFuelPrice
-} from './utils-202603212044.js';
+} from './utils-202603271253.js';
 
-const SEARCH_RADIUS_MILES = 20;
 const DEFAULT_ZOOM = 13;
+const DEFAULT_RADIUS_MILES = 10;
+const MIN_RADIUS_MILES = 1;
+const MAX_RADIUS_MILES = 30;
 
 let map = null;
 let markers = [];
 let stations = [];
 let currentSort = { column: 'diesel', direction: 'asc' };
 let userLocation = null;
+let searchRadiusMiles = DEFAULT_RADIUS_MILES;
 
 document.addEventListener('DOMContentLoaded', async () => {
     initMap();
+    
+    // Initialize radius from session storage and setup slider
+    // This must happen early for all code paths
+    initRadiusFromStorage();
+    setupRadiusSlider();
     
     const urlParams = new URLSearchParams(window.location.search);
     const lat = urlParams.get('lat');
@@ -66,6 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                     hideLoading();
                     showLocationPicker(locations, decodedPlace);
+                    // Don't return early - let the function complete so slider stays set up
                     return;
                 }
             } else {
@@ -128,7 +137,7 @@ async function loadAndDisplayStations() {
         stations = await fetchStationsNearLocation(
             userLocation.lat, 
             userLocation.lng, 
-            SEARCH_RADIUS_MILES
+            searchRadiusMiles
         );
         
         stations = stations.map(function(station) {
@@ -145,13 +154,9 @@ async function loadAndDisplayStations() {
         sortStations('diesel', 'asc');
         displayMarkers();
         displayTable();
-        
-        const noResults = document.getElementById('noResults');
-        if (stations.length === 0) {
-            noResults.classList.remove('hidden');
-        } else {
-            noResults.classList.add('hidden');
-        }
+        fitMapToStations();
+        updateNoResultsMessage();
+        updateStationCount();
         
     } catch (error) {
         console.error('Failed to load stations:', error);
@@ -185,32 +190,52 @@ function filterStationsByRadius(allStations, location, radiusMiles) {
 }
 
 function displayMarkers() {
-    markers.forEach(marker => map.removeLayer(marker));
+    // Clear existing markers
+    markers.forEach(function(marker) { map.removeLayer(marker); });
     markers = [];
     
-    stations.forEach(station => {
-        const lat = parseFloat(station.location.latitude);
-        const lng = parseFloat(station.location.longitude);
-        const open = isStationOpen(station.opening_times);
-        
-        const iconClass = open ? 'station-open' : 'station-closed';
-        const iconHtml = `<div class="station-icon ${iconClass}">⛽</div>`;
-        
-        const customIcon = L.divIcon({
-            className: 'station-marker',
-            html: iconHtml,
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
-        });
-        
-        const popupContent = createPopupContent(station, open);
-        
-        const marker = L.marker([lat, lng], { icon: customIcon })
-            .addTo(map)
-            .bindPopup(popupContent);
-        
-        markers.push(marker);
+    if (!stations || stations.length === 0) return;
+    
+    stations.forEach(function(station) {
+        try {
+            // Validate station data
+            if (!station.location || !station.location.latitude || !station.location.longitude) {
+                console.warn('Station missing location data:', station.node_id);
+                return;
+            }
+            
+            const lat = parseFloat(station.location.latitude);
+            const lng = parseFloat(station.location.longitude);
+            
+            // Validate coordinates
+            if (isNaN(lat) || isNaN(lng)) {
+                console.warn('Invalid coordinates for station:', station.node_id);
+                return;
+            }
+            
+            const open = isStationOpen(station.opening_times);
+            
+            const iconClass = open ? 'station-open' : 'station-closed';
+            const iconHtml = '<div class="station-icon ' + iconClass + '">⛽</div>';
+            
+            const customIcon = L.divIcon({
+                className: 'station-marker',
+                html: iconHtml,
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
+            });
+            
+            const popupContent = createPopupContent(station, open);
+            
+            const marker = L.marker([lat, lng], { icon: customIcon })
+                .addTo(map)
+                .bindPopup(popupContent);
+            
+            markers.push(marker);
+        } catch (e) {
+            console.error('Error creating marker for station:', station.node_id, e);
+        }
     });
 }
 
@@ -255,9 +280,19 @@ function escapeHtml(text) {
 
 function displayTable() {
     const tbody = document.getElementById('fuelTableBody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
-    stations.forEach(station => {
+    if (!stations || stations.length === 0) return;
+    
+    stations.forEach(function(station) {
+        // Validate station data
+        if (!station || !station.location) {
+            console.warn('Invalid station data in table:', station);
+            return;
+        }
+        
         const row = document.createElement('tr');
         
         const dieselPrice = getFuelPrice(station, 'B7_STANDARD');
@@ -266,7 +301,7 @@ function displayTable() {
         const dieselDisplay = formatPrice(dieselPrice);
         const petrolDisplay = formatPrice(petrolPrice);
         const postcode = station.location.postcode || 'N/A';
-        const distance = station.distance.toFixed(1);
+        const distance = (station.distance || 0).toFixed(1);
         
         row.innerHTML = `
             <td class="station-name">${escapeHtml(station.trading_name || station.brand_name || 'Unknown')}</td>
@@ -281,22 +316,24 @@ function displayTable() {
         `;
         
         const postcodeLink = row.querySelector('.postcode-link');
-        postcodeLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            const lat = parseFloat(postcodeLink.dataset.lat);
-            const lng = parseFloat(postcodeLink.dataset.lng);
-            map.setView([lat, lng], 16);
-            
-            const marker = markers.find(m => {
-                const markerLatLng = m.getLatLng();
-                return Math.abs(markerLatLng.lat - lat) < 0.0001 && 
-                       Math.abs(markerLatLng.lng - lng) < 0.0001;
+        if (postcodeLink) {
+            postcodeLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                const lat = parseFloat(postcodeLink.dataset.lat);
+                const lng = parseFloat(postcodeLink.dataset.lng);
+                map.setView([lat, lng], 16);
+                
+                const marker = markers.find(function(m) {
+                    const markerLatLng = m.getLatLng();
+                    return Math.abs(markerLatLng.lat - lat) < 0.0001 && 
+                           Math.abs(markerLatLng.lng - lng) < 0.0001;
+                });
+                if (marker) {
+                    marker.openPopup();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
             });
-            if (marker) {
-                marker.openPopup();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-        });
+        }
         
         tbody.appendChild(row);
     });
@@ -344,6 +381,10 @@ function sortStations(column, direction) {
                 valA = (a.location.postcode || '').toLowerCase();
                 valB = (b.location.postcode || '').toLowerCase();
                 break;
+            case 'distance':
+                valA = a.distance || Infinity;
+                valB = b.distance || Infinity;
+                break;
             default:
                 return 0;
         }
@@ -378,14 +419,38 @@ function showLocationPicker(locations, query) {
     
     if (!picker || !list) return;
     
-    message.textContent = `Multiple locations found for "${query}". Please select one:`;
-    
     list.innerHTML = '';
+    
+    // Filter locations: only show if name or type contains the query
+    const normalizedQuery = query.toLowerCase().trim();
+    const filteredLocations = locations.filter(function(location) {
+        const nameMatch = location.name && location.name.toLowerCase().includes(normalizedQuery);
+        const typeMatch = location.type && location.type.toLowerCase().includes(normalizedQuery);
+        return nameMatch || typeMatch;
+    });
+    
+    // Set message based on filtering results
+    if (filteredLocations.length === 0) {
+        message.textContent = `No exact matches for "${query}". Showing all similar locations:`;
+    } else if (filteredLocations.length < locations.length) {
+        message.textContent = `Found ${filteredLocations.length} location(s) matching "${query}". Please select one:`;
+    } else {
+        message.textContent = `Multiple locations found for "${query}". Please select one:`;
+    }
+    
+    // If only one location matches after filtering, select it automatically
+    if (filteredLocations.length === 1) {
+        selectLocation(filteredLocations[0]);
+        return;
+    }
+    
+    // If no locations match, show all locations (fallback)
+    const locationsToShow = filteredLocations.length > 0 ? filteredLocations : locations;
     
     // Sort locations: places first, then alphabetically by county/region
     const placeTypes = ['village', 'hamlet', 'suburban area', 'other settlement', 'town'];
     
-    const sortedLocations = [...locations].sort((a, b) => {
+    const sortedLocations = [...locationsToShow].sort((a, b) => {
         const aType = a.type.toLowerCase();
         const bType = b.type.toLowerCase();
         
@@ -414,11 +479,14 @@ function showLocationPicker(locations, query) {
         
         const detailText = details.join(', ');
         
+        // Format: "Name (type)" on line 1, details on line 2
         li.innerHTML = `
             <button type="button">
-                <span class="location-name">${escapeHtml(location.name)}</span>
-                <span class="location-type">${escapeHtml(location.type)}</span>
-                ${detailText ? `<span class="location-details">${escapeHtml(detailText)}</span>` : ''}
+                <div class="location-line1">
+                    <span class="location-name">${escapeHtml(location.name)}</span>
+                    <span class="location-type">(${escapeHtml(location.type)})</span>
+                </div>
+                ${detailText ? `<div class="location-line2">${escapeHtml(detailText)}</div>` : ''}
             </button>
         `;
         
@@ -498,5 +566,137 @@ function showErrorBanner(message) {
     if (errorElement) {
         errorElement.textContent = message;
         errorElement.classList.remove('hidden');
+    }
+}
+
+// ============================================================================
+// Radius Control Functions
+// ============================================================================
+
+function initRadiusFromStorage() {
+    try {
+        const storedRadius = sessionStorage.getItem('fuelSearchRadius');
+        if (storedRadius) {
+            const radius = parseInt(storedRadius, 10);
+            if (radius >= MIN_RADIUS_MILES && radius <= MAX_RADIUS_MILES) {
+                searchRadiusMiles = radius;
+            }
+        }
+    } catch (e) {
+        // sessionStorage not available (private mode, etc.)
+    }
+}
+
+function saveRadiusToStorage(radius) {
+    try {
+        sessionStorage.setItem('fuelSearchRadius', radius.toString());
+    } catch (e) {
+        // sessionStorage not available (private mode, etc.)
+    }
+}
+
+function setupRadiusSlider() {
+    const slider = document.getElementById('radiusSlider');
+    const valueDisplay = document.getElementById('radiusValue');
+    
+    if (!slider || !valueDisplay) return;
+    
+    // Set initial value
+    slider.value = searchRadiusMiles;
+    valueDisplay.textContent = searchRadiusMiles;
+    
+    // Add change listener
+    slider.addEventListener('input', function() {
+        const newRadius = parseInt(slider.value, 10);
+        valueDisplay.textContent = newRadius;
+    });
+    
+    slider.addEventListener('change', async function() {
+        const newRadius = parseInt(slider.value, 10);
+        
+        if (newRadius === searchRadiusMiles) return;
+        
+        searchRadiusMiles = newRadius;
+        saveRadiusToStorage(newRadius);
+        
+        // Reload stations with new radius
+        showLoading('Updating search radius...');
+        await loadAndDisplayStations();
+        hideLoading();
+    });
+}
+
+function fitMapToStations() {
+    if (!map || stations.length === 0) return;
+    
+    // User location is always the center
+    const centerLat = userLocation.lat;
+    const centerLng = userLocation.lng;
+    
+    // Find the furthest north and south stations from user location
+    let maxNorthDistance = 0; // stations above user (positive lat difference)
+    let maxSouthDistance = 0; // stations below user (negative lat difference)
+    
+    stations.forEach(function(station) {
+        const lat = parseFloat(station.location.latitude);
+        const latDiff = lat - centerLat; // positive = north, negative = south
+        
+        if (latDiff > maxNorthDistance) {
+            maxNorthDistance = latDiff;
+        }
+        if (Math.abs(latDiff) > maxSouthDistance && latDiff < 0) {
+            maxSouthDistance = Math.abs(latDiff);
+        }
+    });
+    
+    // Use whichever is greater to create symmetrical bounds
+    const maxLatSpan = Math.max(maxNorthDistance, maxSouthDistance);
+    
+    // Add small buffer (0.005 degrees ≈ 0.35 miles)
+    const buffer = 0.005;
+    
+    // Calculate bounds: center ± max span + buffer
+    const halfSpan = maxLatSpan + buffer;
+    
+    // Calculate appropriate zoom based on span
+    // At zoom 10: ~0.5 degrees lat visible
+    // At zoom 11: ~0.25 degrees lat visible  
+    // At zoom 12: ~0.125 degrees lat visible
+    const totalSpan = halfSpan * 2;
+    let zoom = 15;
+    if (totalSpan > 0.4) zoom = 9;
+    else if (totalSpan > 0.2) zoom = 10;
+    else if (totalSpan > 0.1) zoom = 11;
+    else if (totalSpan > 0.05) zoom = 12;
+    else if (totalSpan > 0.025) zoom = 13;
+    else zoom = 14;
+    
+    // Ensure we don't zoom in too close or out too far
+    zoom = Math.max(9, Math.min(15, zoom));
+    
+    // Set view with user location at center
+    map.setView([centerLat, centerLng], zoom, { animate: true });
+}
+
+function updateNoResultsMessage() {
+    const noResults = document.getElementById('noResults');
+    if (!noResults) return;
+    
+    const messageEl = noResults.querySelector('p');
+    if (messageEl) {
+        messageEl.textContent = 'No fuel stations found within ' + searchRadiusMiles + ' miles.';
+    }
+    
+    if (stations.length === 0) {
+        noResults.classList.remove('hidden');
+    } else {
+        noResults.classList.add('hidden');
+    }
+}
+
+function updateStationCount() {
+    const countEl = document.getElementById('stationCount');
+    if (countEl) {
+        countEl.textContent = stations.length;
     }
 }

@@ -42,3 +42,12 @@ foreach ($lines as $line) {
 define('OS_API_KEY', $secrets['OS_API_KEY'] ?? '');
 define('OS_API_SECRET', $secrets['OS_API_SECRET'] ?? '');
 define('DEPLOY_API_KEY', $secrets['DEPLOY_API_KEY'] ?? '');
+
+// Parse allowed origins from comma-separated list
+$allowedOriginsStr = $secrets['ALLOWED_ORIGINS'] ?? '';
+if (empty($allowedOriginsStr)) {
+    // Default origins if not configured
+    $allowedOriginsStr = 'https://fuelseeker.net,https://www.fuelseeker.net';
+}
+$allowedOrigins = array_map('trim', explode(',', $allowedOriginsStr));
+define('ALLOWED_ORIGINS', $allowedOrigins);
