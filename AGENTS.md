@@ -102,7 +102,7 @@ DEPLOY_API_KEY=your_deployment_key_here
 
 # CORS Allowed Origins (comma-separated)
 # Domains allowed to access the API. Add your dev URLs here.
-ALLOWED_ORIGINS=https://fuelseeker.net,https://othersite,https://localsite
+ALLOWED_ORIGINS=https://fuelseeker.net,https://some_other_site,https://local_dev_site
 ```
 
 The `.secrets` file is automatically loaded by `scripts/config.php` which defines constants directly from the values. This centralizes CORS configuration and keeps private IPs out of Git.
