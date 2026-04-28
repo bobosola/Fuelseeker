@@ -27,6 +27,8 @@ The gov.uk Fuel Finder API is restricted to UK IP addresses. If your web server 
 
 **Performance:** The entire deployment process (API token → database build → upload) completes in under 30 seconds. This is significantly faster than the old VPN-based approach which typically took several minutes due to VPN connection overhead and uncompressed uploads.
 
+**Resilience:** The script includes a pre-flight connectivity check (`waitForConnectivity`) that probes the API endpoint before attempting authentication, and automatically retries on transient failures. All cURL calls force IPv4 resolution to avoid flaky IPv6 paths to CloudFront.
+
 ## Setup Instructions
 
 ### 1. Prerequisites (UK PC)
@@ -91,23 +93,24 @@ php deploy_to_remote_server.php
 
 Expected output:
 ```
-[2026-03-21 20:00:00] [INFO] === FuelSeeker UK PC Deployment ===
-[2026-03-21 20:00:00] [INFO] Data dir: /home/user/fuelseeker/data
-[2026-03-21 20:00:00] [INFO] API key loaded (64 chars)
-[2026-03-21 20:00:00] [INFO] === Starting Database Build ===
-[2026-03-21 20:00:05] [INFO] [1/4] Getting OAuth token...
-[2026-03-21 20:00:06] [INFO] Got token
-[2026-03-21 20:00:06] [INFO] [2/4] Downloading stations to CSV...
-[2026-03-21 20:00:30] [INFO] Downloaded 7167 stations
-[2026-03-21 20:00:30] [INFO] [3/4] Downloading prices to CSV...
-[2026-03-21 20:00:45] [INFO] Downloaded prices for 7167 stations
-[2026-03-21 20:00:45] [INFO] [4/4] Building database via SQLite CLI...
-[2026-03-21 20:01:00] [INFO] Database built: 13.5 MB
-[2026-03-21 20:01:00] [INFO] === Starting Deployment ===
-[2026-03-21 20:01:00] [INFO] Target: https://fuelseeker.net/scripts/db_deploy.php
-[2026-03-21 20:01:15] [INFO] Upload attempt 1 of 3...
-[2026-03-21 20:01:25] [INFO] Deployment successful!
-[2026-03-21 20:01:25] [INFO] === Deployment Complete ===
+[2026-04-28 09:48:08] [INFO] === FuelSeeker Deployment ===
+[2026-04-28 09:48:08] [INFO] === Starting Database Build ===
+[2026-04-28 09:48:08] [INFO] Checking internet connectivity...
+[2026-04-28 09:48:08] [INFO] Connectivity OK (attempt 1, probe: https://www.fuel-finder.service.gov.uk, HTTP 403)
+[2026-04-28 09:48:08] [INFO] [1/4] Authenticating with Fuel Finder API...
+[2026-04-28 09:48:14] [INFO] Authenticated
+[2026-04-28 09:48:14] [INFO] [2/4] Downloading stations to CSV...
+[2026-04-28 09:49:11] [INFO] Downloaded 7701 stations
+[2026-04-28 09:49:11] [INFO] [3/4] Downloading prices to CSV...
+[2026-04-28 09:49:14] [INFO] Downloaded prices for 7661 stations
+[2026-04-28 09:49:14] [INFO] [4/4] Building database via SQLite CLI...
+[2026-04-28 09:49:14] [INFO] Database built: 13.66 MB
+[2026-04-28 09:49:14] [INFO] Deploying to https://fuelseeker.net/scripts/db_deploy.php
+[2026-04-28 09:49:17] [INFO] Compressed: 13.66 MB → 2.67 MB (80.5%)
+[2026-04-28 09:49:17] [INFO] Uploading: 2.67 MB
+[2026-04-28 09:49:17] [INFO] Upload attempt 1...
+[2026-04-28 09:49:17] [SUCCESS] Deployed: fuel_data.db.v1 (2026-04-28 09:49:17)
+[2026-04-28 09:49:17] [SUCCESS] Done
 ```
 
 ### 5. Set Up Automatic Updates
@@ -129,6 +132,10 @@ sudo systemctl daemon-reload
 sudo systemctl enable fuelseeker-deploy.timer
 sudo systemctl start fuelseeker-deploy.timer
 ```
+
+**Important:** The systemd service uses `StandardOutput=journal` (not `append:` to the log file) because the PHP script already handles its own file logging via `logMsg()`. Redirecting systemd output to the same file causes every line to appear twice.
+
+The service also includes `Restart=on-failure` with `RestartSec=120`, so if a deployment fails (e.g., due to a transient network issue), systemd will automatically retry after 2 minutes.
 
 See `systemd_timer/INSTALL-SYSTEMD.md` for detailed instructions.
 
@@ -153,6 +160,7 @@ Add:
 - Ensure the UK PC has a UK IP address
 - Verify `FUEL_CLIENT_ID` and `FUEL_CLIENT_SECRET` in `.secrets`
 - Test API access: `curl -I https://www.fuel-finder.service.gov.uk/`
+- **DNS issue (common if AdGuard/pi-hole runs on the same PC):** If your NUC routes its own DNS through a local filtering server (e.g., AdGuard Home) running on the same machine, DNS resolution can fail when that service is busy (e.g., updating filter lists). Configure the NUC to use a direct upstream DNS (e.g., `1.1.1.1`, `8.8.8.8`) instead of the router/AdGuard, or add a fallback upstream in AdGuard Home itself.
 
 ### "Invalid or missing deployment key"
 
@@ -164,6 +172,10 @@ Add:
 - Increase PHP limits on web server
 - Check UK PC upload bandwidth
 - Retry will happen automatically (3 attempts with backoff)
+
+### Duplicate log entries
+
+If every line in `deploy.log` appears twice, check that the systemd service file does **not** use `StandardOutput=append:` or `StandardError=append:` pointing to the same log file. The PHP script already writes to `deploy.log` via `file_put_contents()`. Use `StandardOutput=journal` and `StandardError=journal` instead.
 
 ### "Swap failed: Failed to move uploaded file to target location"
 

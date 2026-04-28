@@ -115,6 +115,11 @@ function buildDatabase($dataDir, $tempDir) {
         unlink($dbPath);
     }
     
+    // Wait for connectivity (handles wake-from-sleep where network isn't ready yet)
+    if (!waitForConnectivity($fuelApiBase . '/pfs', 60)) {
+        throw new Exception('No internet connectivity after 60 seconds. Is the network up?');
+    }
+    
     // Get OAuth token
     logMsg('[1/4] Authenticating with Fuel Finder API...');
     $token = getFuelToken($fuelApiBase);
@@ -169,6 +174,53 @@ function buildDatabase($dataDir, $tempDir) {
 // Fuel API Functions (from update_data_streaming.php)
 // ============================================================================
 
+function waitForConnectivity($url, $maxWait = 60) {
+    // Try multiple probes: the API domain first, then a reliable fallback
+    $probes = [
+        'https://www.fuel-finder.service.gov.uk',
+        'https://1.1.1.1'
+    ];
+    
+    logMsg('Checking internet connectivity...');
+    $start = time();
+    $attempt = 0;
+    $lastError = 'unknown';
+    while (time() - $start < $maxWait) {
+        $attempt++;
+        
+        foreach ($probes as $probeUrl) {
+            $ch = curl_init($probeUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+            curl_setopt($ch, CURLOPT_NOBODY, true);
+            curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            if ($curlError) {
+                $lastError = $curlError;
+                continue;
+            }
+            
+            // Any HTTP response (even 404) means we have connectivity
+            if ($httpCode > 0) {
+                logMsg("Connectivity OK (attempt $attempt, probe: $probeUrl, HTTP $httpCode)");
+                return true;
+            }
+        }
+        
+        logMsg("No connectivity yet (attempt $attempt, last error: $lastError), waiting 5s...", 'WARN');
+        sleep(5);
+    }
+    return false;
+}
+
 function getFuelToken($fuelApiBase) {
     $ch = curl_init($fuelApiBase . '/oauth/generate_access_token');
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -191,6 +243,8 @@ function getFuelToken($fuelApiBase) {
     curl_setopt($ch, CURLOPT_ENCODING, '');
     
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
     
@@ -253,6 +307,7 @@ function streamStationsToCsv($fuelApiBase, $token, $csvPath) {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         
         $response = curl_exec($ch);
@@ -362,6 +417,7 @@ function streamPricesToCsv($fuelApiBase, $token, $csvPath) {
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
         curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
         
         $response = curl_exec($ch);
@@ -556,6 +612,7 @@ function deployToServer($dbPath, $apiKey) {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_TIMEOUT, UPLOAD_TIMEOUT);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
         curl_setopt($ch, CURLOPT_LOW_SPEED_TIME, 60);
         curl_setopt($ch, CURLOPT_LOW_SPEED_LIMIT, 1024);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);

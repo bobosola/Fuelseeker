@@ -13,9 +13,15 @@ WorkingDirectory=/home/bobosola/fuelseeker
 # Run the deployment script
 ExecStart=/usr/bin/php deploy_to_remote_server.php
 
-# Log output
-StandardOutput=append:/home/bobosola/fuelseeker/data/logs/deploy.log
-StandardError=append:/home/bobosola/fuelseeker/data/logs/deploy.log
+# The PHP script already handles its own file logging via logMsg().
+# Do NOT redirect systemd stdout/stderr to the same log file or every
+# line will be duplicated.
+StandardOutput=journal
+StandardError=journal
+
+# Restart on failure (e.g. network not ready after wake)
+Restart=on-failure
+RestartSec=120
 
 # Resource limits
 CPUQuota=50%

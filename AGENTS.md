@@ -452,6 +452,7 @@ php deploy_to_remote_server.php
 The UK PC cannot access the gov.uk Fuel Finder API. Ensure:
 - The PC is located in the UK (or using a UK VPN)
 - API credentials in `data_retrieval_server/.secrets` are correct
+- **DNS issue:** If the UK PC runs AdGuard Home, pi-hole, or another DNS filter on the same machine, and its own DNS is routed through that filter, DNS resolution can fail when the filter service is busy (updating lists, restarting). Configure the PC to use a direct upstream DNS (e.g., `1.1.1.1`, `8.8.8.8`) instead of routing through the local filter. The script now includes a `waitForConnectivity()` probe that retries for 60 seconds and forces IPv4 resolution to avoid flaky IPv6 paths.
 
 ### Deployment Failed / Upload Error
 
@@ -465,6 +466,16 @@ tail -f data/logs/deploy.log
 2. **Invalid API key**: Ensure `DEPLOY_API_KEY` matches in both UK PC and web server `.secrets` files
 3. **PHP upload limits**: Web server must allow uploads up to 20MB
 4. **SSL certificate error**: Ensure web server has valid SSL certificate
+5. **DNS/filtering on same PC**: If AdGuard Home or pi-hole runs on the UK PC and the PC routes its own DNS through it, the filter service can cause DNS timeouts. Use direct DNS on the PC.
+
+### Duplicate Log Entries in deploy.log
+
+If every log line appears twice, the systemd service is likely redirecting `StandardOutput` and `StandardError` to the same file that PHP already writes to via `file_put_contents()`. In the service file, use:
+```ini
+StandardOutput=journal
+StandardError=journal
+```
+instead of `StandardOutput=append:/path/to/deploy.log`.
 
 ### Permission Denied
 ```bash

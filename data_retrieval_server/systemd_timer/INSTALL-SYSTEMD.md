@@ -46,8 +46,15 @@ Example for user `bob`:
 User=bob
 WorkingDirectory=/home/bob/fuelseeker/data_retrieval_server
 ExecStart=/usr/bin/php deploy_to_remote_server.php
-StandardOutput=append:/home/bob/fuelseeker/logs/deploy.log
-StandardError=append:/home/bob/fuelseeker/logs/deploy.log
+
+# The PHP script handles its own file logging. Do NOT redirect systemd
+# stdout/stderr to the same log file or every line will be duplicated.
+StandardOutput=journal
+StandardError=journal
+
+# Auto-retry on transient failures (e.g. DNS not ready after wake)
+Restart=on-failure
+RestartSec=120
 ```
 
 ### 3. Enable and start the timer
@@ -98,6 +105,16 @@ php deploy_to_remote_server.php
 ### "Failed to get OAuth token"
 - Ensure the PC has a UK IP address
 - Check `~/fuelseeker/.secrets` has valid credentials
+- **DNS issue:** If the PC routes its own DNS through a local AdGuard/pi-hole instance on the same machine, configure direct DNS (e.g., `1.1.1.1`) on the PC itself, or add a fallback upstream DNS server.
+
+### "No internet connectivity after 60 seconds"
+- The script performs a pre-flight connectivity probe. If this fails, check:
+  - DNS resolution works: `dig www.fuel-finder.service.gov.uk`
+  - The PC can reach the internet: `curl -I https://www.fuel-finder.service.gov.uk`
+  - IPv6 is not causing issues (the script forces IPv4)
+
+### Duplicate log entries
+- Ensure `StandardOutput` and `StandardError` in the service file use `journal`, not `append:` pointing to the same log file that PHP already writes to.
 
 ### "Invalid or missing deployment key"
 - Ensure `DEPLOY_API_KEY` in `.secrets` matches the web server
